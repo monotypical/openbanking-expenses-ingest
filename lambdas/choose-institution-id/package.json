@@ -1,7 +1,7 @@
 {
-  "name": "update-access-token",
+  "name": "choose-institution-id",
   "version": "1.0.0",
-  "description": "Update GoCardless Bank Account Data API keys",
+  "description": "Fetch institutions from the GoCardless Bank Account Data API and output the correct institution ID",
   "main": "index.ts",
   "scripts": {
     "prebuild": "rm -rf build",
@@ -18,17 +18,15 @@
     "url": "https://github.com/monotypical/openbanking-expenses-ingest/issues"
   },
   "homepage": "https://github.com/monotypical/openbanking-expenses-ingest#readme",
-  "devDependencies": {
-    "@types/aws-lambda": "^8.10.125",
-    "@types/lodash": "^4.14.200",
-    "@types/node": "^20.8.7",
-    "esbuild": "^0.19.5",
-    "typescript": "^5.2.2"
-  },
   "dependencies": {
     "@aws-sdk/client-ssm": "^3.433.0",
     "aws-lambda": "^1.0.7",
     "axios": "^1.5.1",
     "lodash": "^4.17.21"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.125",
+    "@types/lodash": "^4.14.200",
+    "esbuild": "^0.19.5"
   }
 }

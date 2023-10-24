@@ -1,0 +1,34 @@
+{
+  "name": "update-access-token",
+  "version": "1.0.0",
+  "description": "Update GoCardless Bank Account Data API keys",
+  "main": "index.js",
+  "scripts": {
+    "prebuild": "rm -rf build",
+    "build": "esbuild index.ts --bundle --minify --sourcemap --platform=node --target=es2020 --outfile=build/index.js",
+    "postbuild": "cd build && zip -r index.zip index.js*"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/monotypical/openbanking-expenses-ingest.git"
+  },
+  "author": "Alice Lee",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/monotypical/openbanking-expenses-ingest/issues"
+  },
+  "homepage": "https://github.com/monotypical/openbanking-expenses-ingest#readme",
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.125",
+    "@types/lodash": "^4.14.200",
+    "@types/node": "^20.8.7",
+    "esbuild": "^0.19.5",
+    "typescript": "^5.2.2"
+  },
+  "dependencies": {
+    "@aws-sdk/client-ssm": "^3.433.0",
+    "aws-lambda": "^1.0.7",
+    "axios": "^1.5.1",
+    "lodash": "^4.17.21"
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "name": "handle-requisition-response",
+  "version": "1.0.0",
+  "description": "Handles a requisition authorization response via API gateway",
+  "main": "index.ts",
+  "scripts": {
+    "prebuild": "rm -rf build",
+    "build": "esbuild index.ts --bundle --minify --sourcemap --platform=node --target=es2020 --outfile=build/index.js",
+    "postbuild": "cd build && zip -r index.zip index.js*"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/monotypical/openbanking-expenses-ingest.git"
+  },
+  "author": "Alice Lee",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/monotypical/openbanking-expenses-ingest/issues"
+  },
+  "homepage": "https://github.com/monotypical/openbanking-expenses-ingest#readme",
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.125",
+    "esbuild": "^0.19.5",
+    "typescript": "^5.2.2"
+  },
+  "dependencies": {
+    "@aws-sdk/client-sfn": "^3.435.0",
+    "aws-lambda": "^1.0.7",
+    "http-status-codes": "^2.3.0"
+  }
+}

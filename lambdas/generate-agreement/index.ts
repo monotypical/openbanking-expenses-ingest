@@ -18,17 +18,20 @@ const ssmParametersCommand = new GetParametersCommand({
     WithDecryption: true
 })
 
-export const handler: Handler = async ({ institutionId, taskToken }: {institutionId: string, taskToken: string}) => {
+export const handler: Handler = async (event: {institutionId: string, taskToken: string}) => {
     const ssmResponse = await ssmClient.send(ssmParametersCommand)
     const accessToken = _.find(ssmResponse.Parameters, { Name: "/GoCardless/Access-Token" })!.Value!
     const requisitionEndpointURL = _.find(ssmResponse.Parameters, { Name: "/GoCardless/Requisition-API-Endpoint" })!.Value!
     const requisitionTopicARN = _.find(ssmResponse.Parameters, { Name: "/GoCardless/Requisitions-Topic-ARN" })!.Value!
     const requisitionHandlerURL = _.find(ssmResponse.Parameters, { Name: "/GoCardless/Requisition-Request-Handler-Endpoint" })!.Value!
 
-    const redirectUrl = `${requisitionHandlerURL}/${taskToken}`
+    console.log(event)
+    console.log(requisitionHandlerURL)
+
+    const redirectUrl = `${requisitionHandlerURL}?taskToken=${encodeURIComponent(event.taskToken)}`
 
     const requisitionResponse = await axios.post(requisitionEndpointURL,
-        { redirect: redirectUrl, institution_id: institutionId },
+        { redirect: redirectUrl, institution_id: event.institutionId },
         { headers: { Accept: "application/json", "Content-Type": "application/json", "Authorization": `Bearer ${accessToken}` } })
 
     console.log(`Received ${requisitionResponse.status} response from requisition endpoint`)

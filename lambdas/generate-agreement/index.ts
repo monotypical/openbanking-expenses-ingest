@@ -10,21 +10,25 @@ const snsClient = new SNSClient()
 const ssmVariableNames = [
     "/GoCardless/Access-Token",
     "/GoCardless/Requisition-API-Endpoint",
-    "/GoCardless/Requisitions-Topic-ARN"
+    "/GoCardless/Requisitions-Topic-ARN",
+    "/GoCardless/Requisition-Request-Handler-Endpoint"
 ]
 const ssmParametersCommand = new GetParametersCommand({
     Names: ssmVariableNames,
     WithDecryption: true
 })
 
-export const handler: Handler = async ({ institutionId }: {institutionId: string}) => {
+export const handler: Handler = async ({ institutionId, taskToken }: {institutionId: string, taskToken: string}) => {
     const ssmResponse = await ssmClient.send(ssmParametersCommand)
     const accessToken = _.find(ssmResponse.Parameters, { Name: "/GoCardless/Access-Token" })!.Value!
     const requisitionEndpointURL = _.find(ssmResponse.Parameters, { Name: "/GoCardless/Requisition-API-Endpoint" })!.Value!
     const requisitionTopicARN = _.find(ssmResponse.Parameters, { Name: "/GoCardless/Requisitions-Topic-ARN" })!.Value!
+    const requisitionHandlerURL = _.find(ssmResponse.Parameters, { Name: "/GoCardless/Requisition-Request-Handler-Endpoint" })!.Value!
+
+    const redirectUrl = `${requisitionHandlerURL}/${taskToken}`
 
     const requisitionResponse = await axios.post(requisitionEndpointURL,
-        { redirect: "https://example.com", institution_id: institutionId },
+        { redirect: redirectUrl, institution_id: institutionId },
         { headers: { Accept: "application/json", "Content-Type": "application/json", "Authorization": `Bearer ${accessToken}` } })
 
     console.log(`Received ${requisitionResponse.status} response from requisition endpoint`)

@@ -1,18 +1,27 @@
-import { GetParameterCommand, SSMClient } from "@aws-sdk/client-ssm"
+import { GetParametersCommand, SSMClient } from "@aws-sdk/client-ssm"
+import { PublishCommand, SNSClient } from "@aws-sdk/client-sns" 
 import { Handler } from "aws-lambda"
 import axios from "axios"
+import _ from "lodash"
 
 const ssmClient = new SSMClient()
+const snsClient = new SNSClient()
+
+const ssmVariableNames = [
+    "/GoCardless/Access-Token",
+    "/GoCardless/Requisition-API-Endpoint",
+    "/GoCardless/Requisitions-Topic-ARN"
+]
+const ssmParametersCommand = new GetParametersCommand({
+    Names: ssmVariableNames,
+    WithDecryption: true
+})
 
 export const handler: Handler = async ({ institutionId }: {institutionId: string}) => {
-    const accessToken = (await ssmClient.send(new GetParameterCommand({
-        Name: "/GoCardless/Access-Token",
-        WithDecryption: true
-    }))).Parameter!.Value!
-    const requisitionEndpointURL = (await ssmClient.send(new GetParameterCommand({
-        Name: "/GoCardless/Requisition-API-Endpoint",
-        WithDecryption: true
-    }))).Parameter!.Value!
+    const ssmResponse = await ssmClient.send(ssmParametersCommand)
+    const accessToken = _.find(ssmResponse.Parameters, { Name: "/GoCardless/Access-Token" })!.Value!
+    const requisitionEndpointURL = _.find(ssmResponse.Parameters, { Name: "/GoCardless/Requisition-API-Endpoint" })!.Value!
+    const requisitionTopicARN = _.find(ssmResponse.Parameters, { Name: "/GoCardless/Requisitions-Topic-ARN" })!.Value!
 
     const requisitionResponse = await axios.post(requisitionEndpointURL,
         { redirect: "https://example.com", institution_id: institutionId },
@@ -20,8 +29,15 @@ export const handler: Handler = async ({ institutionId }: {institutionId: string
 
     console.log(`Received ${requisitionResponse.status} response from requisition endpoint`)
 
+    const publishCommand = new PublishCommand({
+        TopicArn: requisitionTopicARN,
+        Message: `Please click the following link to authorize ingest-shared-expenses on AWS to read your bank account transactions, in order to export these to google sheets\n\n${requisitionResponse.data.link}`,
+        Subject: "A GoCardless Bank Account Data requisition requests requires your approval"
+    })
+    const publishResponse = await snsClient.send(publishCommand)
+    console.log("Published message to SNS topic")
+
     return {
-        requisitionId: requisitionResponse.data.id,
-        requisitionLink: requisitionResponse.data.link
+        requisitionId: requisitionResponse.data.id
     }
 }

@@ -19,9 +19,11 @@
   },
   "homepage": "https://github.com/monotypical/openbanking-expenses-ingest#readme",
   "dependencies": {
+    "@aws-sdk/client-sns": "^3.435.0",
     "@aws-sdk/client-ssm": "^3.433.0",
     "aws-lambda": "^1.0.7",
-    "axios": "^1.5.1"
+    "axios": "^1.5.1",
+    "lodash": "^4.17.21"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.125",

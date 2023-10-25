@@ -1,10 +1,11 @@
-import { GetParametersCommand, SSMClient } from "@aws-sdk/client-ssm"
+import { GetParametersCommand, PutParameterCommand, SSMClient } from "@aws-sdk/client-ssm"
 import { PublishCommand, SNSClient } from "@aws-sdk/client-sns" 
 import { Handler } from "aws-lambda"
 import axios from "axios"
 import _ from "lodash"
 
 const ssmClient = new SSMClient()
+const ssmKeyId = process.env.SSM_KEY_ID!
 const snsClient = new SNSClient()
 
 const ssmVariableNames = [
@@ -25,16 +26,24 @@ export const handler: Handler = async (event: {institutionId: string, taskToken:
     const requisitionTopicARN = _.find(ssmResponse.Parameters, { Name: "/GoCardless/Requisitions-Topic-ARN" })!.Value!
     const requisitionHandlerURL = _.find(ssmResponse.Parameters, { Name: "/GoCardless/Requisition-Request-Handler-Endpoint" })!.Value!
 
-    console.log(event)
-    console.log(requisitionHandlerURL)
-
     const redirectUrl = `${requisitionHandlerURL}?taskToken=${encodeURIComponent(event.taskToken)}`
 
     const requisitionResponse = await axios.post(requisitionEndpointURL,
         { redirect: redirectUrl, institution_id: event.institutionId },
         { headers: { Accept: "application/json", "Content-Type": "application/json", "Authorization": `Bearer ${accessToken}` } })
+    const requisitionId = requisitionResponse.data.id
 
-    console.log(`Received ${requisitionResponse.status} response from requisition endpoint`)
+    console.log(`Received ${requisitionResponse.status} response from requisition endpoint, id ${requisitionId}`)
+
+    await ssmClient.send(new PutParameterCommand({
+        Name: "/GoCardless/Requisition-id",
+        Value: accessToken,
+        Type: "SecureString",
+        KeyId: ssmKeyId,
+        Overwrite: true
+    }))
+
+    console.log("Updated requisition ID SSM param")
 
     const publishCommand = new PublishCommand({
         TopicArn: requisitionTopicARN,

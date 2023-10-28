@@ -29,6 +29,7 @@
     "@aws-sdk/client-ssm": "^3.433.0",
     "aws-lambda": "^1.0.7",
     "axios": "^1.5.1",
+    "date-fns": "^2.30.0",
     "lodash": "^4.17.21"
   }
 }

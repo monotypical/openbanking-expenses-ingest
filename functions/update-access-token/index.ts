@@ -23,7 +23,7 @@ const ssmParametersCommand = new GetParametersCommand({
     WithDecryption: true
 })
 
-export const handler: Handler = async () => {
+export const handler: Handler =  async () => {
     const ssmResponse = await ssmClient.send(ssmParametersCommand)
     
     const accessTokenExpires = _.find(ssmResponse.Parameters, { Name: "/GoCardless/Access-Token-Expires"})!.Value!

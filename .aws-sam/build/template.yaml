@@ -1,0 +1,51 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: 'openbanking-expenses-ingest
+
+  Exports expenses to google sheets using OpenBanking via the GoCardless Bank Account
+  Data API
+
+  '
+Parameters:
+  BankName:
+    Type: String
+    Description: The name of the bank institution to use to authenticate with
+    Default: Starling Bank
+  BankCountry:
+    Type: String
+    Description: The country of the bank instutution to use
+    Default: GB
+  SecretIdParamName:
+    Type: AWS::SSM::Parameter::Name
+    Description: The ARN of the parameter which contains the GoCardless Bank Account
+      Data API secret ID
+    Default: /GoCardless/Secret-Id
+  SecretKeyParamName:
+    Type: AWS::SSM::Parameter::Name
+    Description: The ARN of the parameter which contains the GoCardless Bank Account
+      Data API secret key
+    Default: /GoCardless/Secret-Key
+Resources:
+  UpdateAccessTokenFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: Renews or refreshes the access token for the GoCardless Bank Account
+        Data API where necessary
+      CodeUri: UpdateAccessTokenFunction
+      Runtime: nodejs18.x
+      Architectures:
+      - arm64
+      Handler: index.handler
+      Timeout: 30
+      Environment:
+        Variables:
+          NODE_OPTIONS: ' --enable-source-maps'
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints:
+        - index.ts
+        Minify: true
+        Sourcemap: true
+        Target: es2020
+      SamResourceId: UpdateAccessTokenFunction

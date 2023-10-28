@@ -24,14 +24,14 @@ Parameters:
     Default: /GoCardless/Secret-Key
 
 Resources:
-  UpdateAccessTokenFunction:
+  UpdateApiCredentialsFunction:
     Type: AWS::Serverless::Function
     Properties:
       Description: Renews or refreshes the access token for the GoCardless Bank Account Data API where necessary
       CodeUri: functions/update-api-credentials/
       Runtime: nodejs18.x
       Architectures:
-        - arm64
+        - x86_64
       Handler: index.handler
       Timeout: 30
     Metadata:
@@ -42,3 +42,14 @@ Resources:
         Sourcemap: true
         EntryPoints:
           - index.ts
+  IngestSharedExpensesStateMachine:
+    Type: AWS::Serverless::StateMachine
+    Properties:
+      DefinitionUri: statemachine/openbanking-expenses-ingest.json
+      DefinitionSubstitutions:
+        UpdateApiCredentialsFunctionARN: !Ref UpdateApiCredentialsFunction
+      Policies:
+        - LambdaInvokePolicy:
+            FunctionName: !Ref UpdateApiCredentialsFunction
+        - SSMParameterReadPolicy:
+            ParameterName: GoCardless/*

@@ -1,97 +1,51 @@
 {
-    "Comment": "A state machine that exports transactions to google sheets.",
-    "StartAt": "Check Stock Value",
+    "Comment": "Gets bank transactions from OpenBanking via GoCardless and exports them to a google sheet",
+    "StartAt": "Get SSM Parameters",
     "States": {
-        "Check Stock Value": {
-            "Type": "Task",
-            "Resource": "${StockCheckerFunctionArn}",
-            "Retry": [
-                {
-                    "ErrorEquals": [
-                        "States.TaskFailed"
-                    ],
-                    "IntervalSeconds": 15,
-                    "MaxAttempts": 5,
-                    "BackoffRate": 1.5
-                }
-            ],
-            "Next": "Buy or Sell?"
+      "Get SSM Parameters": {
+        "Type": "Task",
+        "Next": "Update API Credentials",
+        "Parameters": {
+          "Names": [
+            "/GoCardless/Access-Token",
+            "/GoCardless/Access-Token-Expires",
+            "/GoCardless/Refresh-Token",
+            "/GoCardless/Refresh-Token-Expires"
+          ]
         },
-        "Buy or Sell?": {
-            "Type": "Choice",
-            "Choices": [
-                {
-                    "Variable": "$.stock_price",
-                    "NumericLessThanEquals": 50,
-                    "Next": "Buy Stock"
-                }
-            ],
-            "Default": "Sell Stock"
-        },
-        "Sell Stock": {
-            "Type": "Task",
-            "Resource": "${StockSellerFunctionArn}",
-            "Retry": [
-                {
-                    "ErrorEquals": [
-                        "States.TaskFailed"
-                    ],
-                    "IntervalSeconds": 2,
-                    "MaxAttempts": 3,
-                    "BackoffRate": 1
-                }
-            ],
-            "Next": "Record Transaction"
-        },
-        "Buy Stock": {
-            "Type": "Task",
-            "Resource": "${StockBuyerFunctionArn}",
-            "Retry": [
-                {
-                    "ErrorEquals": [
-                        "States.TaskFailed"
-                    ],
-                    "IntervalSeconds": 2,
-                    "MaxAttempts": 3,
-                    "BackoffRate": 1
-                }
-            ],
-            "Next": "Record Transaction"
-        },
-        "Record Transaction": {
-            "Type": "Task",
-            "Resource": "${DDBPutItem}",
-            "Parameters": {
-                "TableName": "${DDBTable}",
-                "Item": {
-                    "Id": {
-                        "S.$": "$.id"
-                    },
-                    "Type": {
-                        "S.$": "$.type"
-                    },
-                    "Price": {
-                        "N.$": "$.price"
-                    },
-                    "Quantity": {
-                        "N.$": "$.qty"
-                    },
-                    "Timestamp": {
-                        "S.$": "$.timestamp"
-                    }
-                }
-            },
-            "Retry": [
-                {
-                    "ErrorEquals": [
-                        "States.TaskFailed"
-                    ],
-                    "IntervalSeconds": 20,
-                    "MaxAttempts": 5,
-                    "BackoffRate": 10
-                }
-            ],
-            "End": true
+        "Resource": "arn:aws:states:::aws-sdk:ssm:getParameters",
+        "ResultSelector": {
+          "AccessToken": {
+            "Value.$": "$.Parameters[0].Value",
+            "Expires.$": "$.Parameters[1].Value"
+          },
+          "RefreshToken": {
+            "Value.$": "$.Parameters[2].Value",
+            "Expires.$": "$.Parameters[3].Value"
+          }
         }
+      },
+      "Update API Credentials": {
+        "Type": "Task",
+        "Resource": "arn:aws:states:::lambda:invoke",
+        "OutputPath": "$.Payload",
+        "Parameters": {
+          "FunctionName": "${UpdateApiCredentialsFunctionARN}:$LATEST"
+        },
+        "Retry": [
+          {
+            "ErrorEquals": [
+              "Lambda.ServiceException",
+              "Lambda.AWSLambdaException",
+              "Lambda.SdkClientException",
+              "Lambda.TooManyRequestsException"
+            ],
+            "IntervalSeconds": 1,
+            "MaxAttempts": 3,
+            "BackoffRate": 2
+          }
+        ],
+        "End": true
+      }
     }
-}
+  }

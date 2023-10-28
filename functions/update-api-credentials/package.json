@@ -1,7 +1,7 @@
 {
-  "name": "update-access-token",
+  "name": "update-api-credentials",
   "version": "1.0.0",
-  "description": "Update GoCardless Bank Account Data API keys",
+  "description": "Update GoCardless Bank Account Data API credentials",
   "main": "index.ts",
   "scripts": {
     "prebuild": "rm -rf build",
@@ -30,6 +30,6 @@
     "aws-lambda": "^1.0.7",
     "axios": "^1.5.1",
     "date-fns": "^2.30.0",
-    "lodash": "^4.17.21"
+    "nordigen-node": "^1.2.6"
   }
 }

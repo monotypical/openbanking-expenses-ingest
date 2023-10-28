@@ -131,3 +131,6 @@ dist
 
 # built files
 functions/*/build
+
+# AWS SAM files
+.aws-sam/*

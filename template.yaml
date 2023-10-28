@@ -28,7 +28,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Description: Renews or refreshes the access token for the GoCardless Bank Account Data API where necessary
-      CodeUri: functions/update-access-token/
+      CodeUri: functions/update-api-credentials/
       Runtime: nodejs18.x
       Architectures:
         - arm64

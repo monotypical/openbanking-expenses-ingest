@@ -11,7 +11,8 @@
             "/GoCardless/Access-Token-Expires",
             "/GoCardless/Refresh-Token",
             "/GoCardless/Refresh-Token-Expires"
-          ]
+          ],
+          "WithDecryption": true
         },
         "Resource": "arn:aws:states:::aws-sdk:ssm:getParameters",
         "ResultSelector": {

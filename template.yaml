@@ -53,6 +53,8 @@ Resources:
             FunctionName: !Ref UpdateApiCredentialsFunction
         - SSMParameterReadPolicy:
             ParameterName: GoCardless/*
+        - KMSDecryptPolicy:
+            KeyId: !Ref KmsKey
   
   KmsKey:
     Type: AWS::KMS::Key

@@ -9,7 +9,6 @@ type AccessTokenInput = {
     RefreshToken: ExpiringValue<string>
     SecretIdParam: string
     SecretKeyParam: string
-    SSMKeyId: string
 }
 
 type AccessTokenOutput = {
@@ -100,7 +99,7 @@ export const handler: Handler = async (input: AccessTokenInput): Promise<AccessT
     })
     nordigenClient.token = input.AccessToken.Value
 
-    if (refreshTokenValidForMinutes < 1) {
+    if (refreshTokenValidForMinutes >= 1) {
         const newAccessToken = await refreshToken(nordigenClient, input.RefreshToken)
         return {
             AccessToken: newAccessToken,

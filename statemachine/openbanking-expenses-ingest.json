@@ -30,7 +30,19 @@
         "Resource": "arn:aws:states:::lambda:invoke",
         "OutputPath": "$.Payload",
         "Parameters": {
-          "FunctionName": "${UpdateApiCredentialsFunctionARN}:$LATEST"
+          "FunctionName": "${UpdateApiCredentialsFunctionARN}:$LATEST",
+          "Payload": {
+            "AccessToken": {
+              "Value.$": "$.AccessToken.Value",
+              "Expires.$": "$.AccessToken.Expires"
+            },
+            "RefreshToken": {
+                "Value.$": "$.RefreshToken.Value",
+                "Expires.$": "$.RefreshToken.Expires"
+            },
+            "SecretIdParam": "${SecretIdParamName}",
+            "SecretKeyParam": "${SecretKeyParamName}"
+          }
         },
         "Retry": [
           {

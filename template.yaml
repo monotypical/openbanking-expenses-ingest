@@ -14,14 +14,6 @@ Parameters:
     Type: String
     Description: The country of the bank instutution to use
     Default: GB
-  SecretIdParamName:
-    Type: AWS::SSM::Parameter::Name
-    Description: The ARN of the parameter which contains the GoCardless Bank Account Data API secret ID
-    Default: /GoCardless/Secret-Id
-  SecretKeyParamName:
-    Type: AWS::SSM::Parameter::Name
-    Description: The ARN of the parameter which contains the GoCardless Bank Account Data API secret key
-    Default: /GoCardless/Secret-Key
 
 Resources:
   UpdateApiCredentialsFunction:
@@ -34,6 +26,11 @@ Resources:
         - x86_64
       Handler: index.handler
       Timeout: 30
+      Policies:
+        - SSMParameterReadPolicy:
+            ParameterName: GoCardless/*
+        - KMSDecryptPolicy:
+            KeyId: !Ref KmsKey
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
@@ -42,14 +39,38 @@ Resources:
         Sourcemap: true
         EntryPoints:
           - index.ts
+  
   IngestSharedExpensesStateMachine:
     Type: AWS::Serverless::StateMachine
     Properties:
       DefinitionUri: statemachine/openbanking-expenses-ingest.json
       DefinitionSubstitutions:
         UpdateApiCredentialsFunctionARN: !Ref UpdateApiCredentialsFunction
+        SecretIdParamName: /GoCardless/Secret-Id
+        SecretKeyParamName: /GoCardless/Secret-Key
       Policies:
         - LambdaInvokePolicy:
             FunctionName: !Ref UpdateApiCredentialsFunction
         - SSMParameterReadPolicy:
             ParameterName: GoCardless/*
+  
+  KmsKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: The key used to encrypt sensitive information related to the openbanking-expenses-ingest service
+      KeyPolicy:
+        Version: 2012-10-17
+        Id: openbanking-expenses-ingest-key-policy
+        Statement:
+          - Sid: Enable IAM User Permissions
+            Effect: Allow
+            Principal:
+              AWS: !Sub arn:aws:iam::${AWS::AccountId}:root
+            Action: kms:*
+            Resource: '*'
+  
+  KmsKeyAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: alias/Openbanking-Expenses-Ingest
+      TargetKeyId: !Ref KmsKey

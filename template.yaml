@@ -14,6 +14,9 @@ Parameters:
     Type: String
     Description: The country of the bank instutution to use
     Default: GB
+  RequisitionNotificationAddress:
+    Type: String
+    Description: The email address to notify when user action is needed to generate a requisition
 
 Resources:
   UpdateApiCredentialsFunction:
@@ -36,7 +39,24 @@ Resources:
       BuildProperties:
         Minify: true
         Target: 'es2020'
-        Sourcemap: true
+        EntryPoints:
+          - index.ts
+  
+  UpdateRequisitionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: Renews or refreshes the requisition for the GoCardless Bank Account Data API where necessary
+      CodeUri: functions/update-requisition/
+      Runtime: nodejs18.x
+      Architectures:
+        - x86_64
+      Handler: index.handler
+      Timeout: 30
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: 'es2020'
         EntryPoints:
           - index.ts
   
@@ -46,6 +66,7 @@ Resources:
       DefinitionUri: statemachine/openbanking-expenses-ingest.json
       DefinitionSubstitutions:
         UpdateApiCredentialsFunctionARN: !Ref UpdateApiCredentialsFunction
+        UpdateRequisitionFunctionARN: !Ref UpdateRequisitionFunction
         SsmKeyId: !Ref KmsKey
         SecretIdParamName: /GoCardless/Secret-Id
         SecretKeyParamName: /GoCardless/Secret-Key
@@ -53,22 +74,45 @@ Resources:
         AccessTokenExpiresParamName: /GoCardless/Access-Token-Expires
         RefreshTokenParamName: /GoCardless/Refresh-Token
         RefreshTokenExpiresParamName: /GoCardless/Refresh-Token-Expires
+        RequisitionIdParamName: /GoCardless/Requisition-Id
+        RequisitionExpiresParamName: /GoCardless/Requisition-Expires
+        BankName: !Ref BankName
+        BankCountry: !Ref BankCountry
+        RequisitionNotificationTopic: !Ref RequisitionSnsTopic
       Policies:
         - LambdaInvokePolicy:
-            FunctionName: !Ref 'UpdateApiCredentialsFunction'
+            FunctionName: !Ref UpdateApiCredentialsFunction
+        - LambdaInvokePolicy:
+            FunctionName: !Ref UpdateRequisitionFunction
         - SSMParameterReadPolicy:
             ParameterName: 'GoCardless/*'
         - KMSDecryptPolicy:
             KeyId: !Ref KmsKey
         - KMSEncryptPolicy:
             KeyId: !Ref KmsKey
+        - SNSPublishMessagePolicy:
+            TopicName: GoCardless-Bank-Account-Data-Agreement
         - Version: '2012-10-17'
           Statement:
             - Effect: Allow
               Action:
-                -  ssm:PutParameter
+                - ssm:PutParameter
               Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/GoCardless/*'
+            - Effect: Allow
+              Action:
+                - kms:GenerateDataKey
+              Resource: !GetAtt KmsKey.Arn
   
+  RequisitionSnsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: GoCardless-Bank-Account-Data-Agreement
+      DisplayName: GoCardless Bank Account API agreement notification
+      KmsMasterKeyId: !Ref KmsKey
+      Subscription:
+        - Endpoint: !Ref RequisitionNotificationAddress
+          Protocol: email
+
   KmsKey:
     Type: AWS::KMS::Key
     Properties:
@@ -77,7 +121,7 @@ Resources:
         Version: '2012-10-17'
         Id: openbanking-expenses-ingest-key-policy
         Statement:
-          - Sid: Enable IAM User Permissions
+          - Sid: Enable Root User Permissions
             Effect: Allow
             Principal:
               AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'

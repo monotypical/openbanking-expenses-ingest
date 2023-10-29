@@ -1,8 +1,8 @@
 {
     "Comment": "Gets bank transactions from OpenBanking via GoCardless and exports them to a google sheet",
-    "StartAt": "Get SSM Parameters",
+    "StartAt": "Get API Credential SSM Parameters",
     "States": {
-      "Get SSM Parameters": {
+      "Get API Credential SSM Parameters": {
         "Type": "Task",
         "Next": "Update API Credentials",
         "Parameters": {
@@ -58,11 +58,10 @@
             "BackoffRate": 2
           }
         ],
-        "Next": "Update SSM Params"
+        "Next": "Update API Credentials SSM Params"
       },
-      "Update SSM Params": {
+      "Update API Credentials SSM Params": {
         "Type": "Parallel",
-        "End": true,
         "Branches": [
           {
             "StartAt": "Update Access Token",
@@ -132,7 +131,118 @@
           }
         ],
         "ResultPath": null,
-        "OutputPath": "$.AccessToken"
+        "Next": "Get Requisition SSM Parameters"
+      },
+      "Get Requisition SSM Parameters": {
+        "Type": "Task",
+        "Parameters": {
+          "Names": [
+            "/GoCardless/Requisition-Id",
+            "/GoCardless/Requisition-Expires"
+          ],
+          "WithDecryption": true
+        },
+        "Resource": "arn:aws:states:::aws-sdk:ssm:getParameters",
+        "ResultPath": "$.Requisition",
+        "ResultSelector": {
+          "Value.$": "$.Parameters[1].Value",
+          "Expires.$": "$.Parameters[0].Value"
+        },
+        "Next": "Update Requisition"
+      },
+      "Update Requisition": {
+        "Type": "Task",
+        "Resource": "arn:aws:states:::lambda:invoke",
+        "Parameters": {
+          "FunctionName": "${UpdateRequisitionFunctionARN}:$LATEST",
+          "Payload": {
+            "AccessToken.$": "$.AccessToken",
+            "Requisition.$": "$.Requisition",
+            "Bank": {
+              "Name": "${BankName}",
+              "Country": "${BankCountry}"
+            }
+          }
+        },
+        "OutputPath": "$.Payload",
+        "Next": "Update Requisition SSM Params and Notify"
+      },
+      "Update Requisition SSM Params and Notify": {
+        "Type": "Parallel",
+        "Branches": [
+          {
+            "StartAt": "Update Requisition Id",
+            "States": {
+              "Update Requisition Id": {
+                "Type": "Task",
+                "End": true,
+                "Parameters": {
+                  "Name": "${RequisitionIdParamName}",
+                  "Value.$": "$.Requisition.Value",
+                  "Type": "SecureString",
+                  "KeyId": "${SsmKeyId}",
+                  "Overwrite": true
+                },
+                "Resource": "arn:aws:states:::aws-sdk:ssm:putParameter"
+              }
+            }
+          },
+          {
+            "StartAt": "Update Requisition Expiration",
+            "States": {
+              "Update Requisition Expiration": {
+                "Type": "Task",
+                "End": true,
+                "Parameters": {
+                  "Name": "${RequisitionExpiresParamName}",
+                  "Value.$": "States.Format('\"{}\"', $.Requisition.Expires)",
+                  "Type": "String",
+                  "Overwrite": true
+                },
+                "Resource": "arn:aws:states:::aws-sdk:ssm:putParameter"
+              }
+            }
+          },
+          {
+            "StartAt": "Notify user if confirmation needed",
+            "States": {
+              "Notify user if confirmation needed": {
+                "Type": "Choice",
+                "Choices": [
+                  {
+                    "Variable": "$.Requisition.ConfirmLink",
+                    "IsPresent": true,
+                    "Next": "Notify user"
+                  },
+                  {
+                    "Not": {
+                      "Variable": "$.Requisition.ConfirmLink",
+                      "IsPresent": true
+                    },
+                    "Next": "Pass"
+                  }
+                ],
+                "Default": "Pass"
+              },
+              "Notify user": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::aws-sdk:sns:publish",
+                "Parameters": {
+                  "TopicArn": "${RequisitionNotificationTopic}",
+                  "Message.$": "States.Format('Please click the following link to authorize ingest-shared-expenses on AWS to read your bank account transactions, in order to export these to google sheets\n\n{}', $.Requisition.ConfirmLink)",
+                  "Subject": "A GoCardless Bank Account Data requisition requests requires your approval"
+                },
+                "End": true
+              },
+              "Pass": {
+                "Type": "Pass",
+                "End": true
+              }
+            }
+          }
+        ],
+        "ResultPath": null,
+        "End": true
       }
     }
   }

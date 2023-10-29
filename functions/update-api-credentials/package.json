@@ -20,15 +20,12 @@
   "homepage": "https://github.com/monotypical/openbanking-expenses-ingest#readme",
   "devDependencies": {
     "@types/aws-lambda": "^8.10.125",
-    "@types/lodash": "^4.14.200",
-    "@types/node": "^20.8.7",
     "esbuild": "^0.19.5",
     "typescript": "^5.2.2"
   },
   "dependencies": {
     "@aws-sdk/client-ssm": "^3.433.0",
     "aws-lambda": "^1.0.7",
-    "axios": "^1.5.1",
     "date-fns": "^2.30.0",
     "nordigen-node": "^1.2.6"
   }

@@ -4,14 +4,14 @@ import { differenceInHours, differenceInMinutes, fromUnixTime, getUnixTime } fro
 import NordigenClient from "nordigen-node"
 import type { ExpiringValue } from "../../lib/types"
 
-type AccessTokenInput = {
+type UpdateApiCredentialsInput = {
     AccessToken: ExpiringValue<string>
     RefreshToken: ExpiringValue<string>
     SecretIdParam: string
     SecretKeyParam: string
 }
 
-type AccessTokenOutput = {
+type UpdateApiCredentialsOutput = {
     AccessToken: ExpiringValue<string>
     RefreshToken: ExpiringValue<string>
 }
@@ -36,7 +36,7 @@ const refreshToken = async (
     }
 }
 
-const getNewTokens = async (nordigenClient: NordigenClient): Promise<AccessTokenOutput> => {
+const getNewTokens = async (nordigenClient: NordigenClient): Promise<UpdateApiCredentialsOutput> => {
     console.log("Requesting new access token")
     const newTokens = (await nordigenClient.generateToken()) as {
         access: string
@@ -79,7 +79,7 @@ async function getSsmParam<V>(client: SSMClient, paramName: string): Promise<V> 
     }
 }
 
-export const handler: Handler = async (input: AccessTokenInput): Promise<AccessTokenOutput> => {
+export const handler: Handler = async (input: UpdateApiCredentialsInput): Promise<UpdateApiCredentialsOutput> => {
     const accessTokenValidForHours = differenceInHours(fromUnixTime(+input.AccessToken.Expires), new Date())
     const refreshTokenValidForMinutes = differenceInMinutes(fromUnixTime(+input.RefreshToken.Expires), new Date())
 

@@ -1,7 +1,7 @@
 {
-  "name": "choose-institution-id",
+  "name": "update-requisiton",
   "version": "1.0.0",
-  "description": "Fetch institutions from the GoCardless Bank Account Data API and output the correct institution ID",
+  "description": "Updates the current requisiton for the GoCardless Bank Account Data API if necessary",
   "main": "index.ts",
   "scripts": {
     "prebuild": "rm -rf build",
@@ -18,15 +18,16 @@
     "url": "https://github.com/monotypical/openbanking-expenses-ingest/issues"
   },
   "homepage": "https://github.com/monotypical/openbanking-expenses-ingest#readme",
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.125",
+    "@types/uuid": "^9.0.6",
+    "esbuild": "^0.19.5",
+    "typescript": "^5.2.2"
+  },
   "dependencies": {
     "@aws-sdk/client-ssm": "^3.433.0",
     "aws-lambda": "^1.0.7",
-    "axios": "^1.5.1",
-    "lodash": "^4.17.21"
-  },
-  "devDependencies": {
-    "@types/aws-lambda": "^8.10.125",
-    "@types/lodash": "^4.14.200",
-    "esbuild": "^0.19.5"
+    "date-fns": "^2.30.0",
+    "nordigen-node": "^1.2.6"
   }
 }

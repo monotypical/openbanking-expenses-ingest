@@ -7,10 +7,10 @@
         "Next": "Update API Credentials",
         "Parameters": {
           "Names": [
-            "/GoCardless/Access-Token",
-            "/GoCardless/Access-Token-Expires",
-            "/GoCardless/Refresh-Token",
-            "/GoCardless/Refresh-Token-Expires"
+            "${AccessTokenParamName}",
+            "${AccessTokenExpiresParamName}",
+            "${RefreshTokenParamName}",
+            "${RefreshTokenExpiresParamName}"
           ],
           "WithDecryption": true
         },
@@ -58,7 +58,81 @@
             "BackoffRate": 2
           }
         ],
-        "End": true
+        "Next": "Update SSM Params"
+      },
+      "Update SSM Params": {
+        "Type": "Parallel",
+        "End": true,
+        "Branches": [
+          {
+            "StartAt": "Update Access Token",
+            "States": {
+              "Update Access Token": {
+                "Type": "Task",
+                "End": true,
+                "Parameters": {
+                  "Name": "${AccessTokenParamName}",
+                  "Value.$": "$.AccessToken.Value",
+                  "Type": "SecureString",
+                  "KeyId": "${SsmKeyId}",
+                  "Overwrite": true
+                },
+                "Resource": "arn:aws:states:::aws-sdk:ssm:putParameter"
+              }
+            }
+          },
+          {
+            "StartAt": "Update Access Token Expiration",
+            "States": {
+              "Update Access Token Expiration": {
+                "Type": "Task",
+                "End": true,
+                "Parameters": {
+                  "Name": "${AccessTokenExpiresParamName}",
+                  "Value.$": "States.Format('\"{}\"', $.AccessToken.Expires)",
+                  "Type": "String",
+                  "Overwrite": true
+                },
+                "Resource": "arn:aws:states:::aws-sdk:ssm:putParameter"
+              }
+            }
+          },
+          {
+            "StartAt": "Update Refresh Token",
+            "States": {
+              "Update Refresh Token": {
+                "Type": "Task",
+                "End": true,
+                "Parameters": {
+                  "Name": "${RefreshTokenParamName}",
+                  "Value.$": "$.RefreshToken.Value",
+                  "Type": "SecureString",
+                  "KeyId": "${SsmKeyId}",
+                  "Overwrite": true
+                },
+                "Resource": "arn:aws:states:::aws-sdk:ssm:putParameter"
+              }
+            }
+          },
+          {
+            "StartAt": "Update Refresh Token Expiration",
+            "States": {
+              "Update Refresh Token Expiration": {
+                "Type": "Task",
+                "End": true,
+                "Parameters": {
+                  "Name": "${RefreshTokenExpiresParamName}",
+                  "Value.$": "States.Format('\"{}\"', $.RefreshToken.Expires)",
+                  "Type": "String",
+                  "Overwrite": true
+                },
+                "Resource": "arn:aws:states:::aws-sdk:ssm:putParameter"
+              }
+            }
+          }
+        ],
+        "ResultPath": null,
+        "OutputPath": "$.AccessToken"
       }
     }
   }

@@ -1,5 +1,5 @@
-AWSTemplateFormatVersion: "2010-09-09"
-Transform: AWS::Serverless-2016-10-31
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: 'AWS::Serverless-2016-10-31'
 Description: >
   openbanking-expenses-ingest
 
@@ -28,14 +28,14 @@ Resources:
       Timeout: 30
       Policies:
         - SSMParameterReadPolicy:
-            ParameterName: GoCardless/*
+            ParameterName: 'GoCardless/*'
         - KMSDecryptPolicy:
             KeyId: !Ref KmsKey
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
         Minify: true
-        Target: "es2020"
+        Target: 'es2020'
         Sourcemap: true
         EntryPoints:
           - index.ts
@@ -46,29 +46,42 @@ Resources:
       DefinitionUri: statemachine/openbanking-expenses-ingest.json
       DefinitionSubstitutions:
         UpdateApiCredentialsFunctionARN: !Ref UpdateApiCredentialsFunction
+        SsmKeyId: !Ref KmsKey
         SecretIdParamName: /GoCardless/Secret-Id
         SecretKeyParamName: /GoCardless/Secret-Key
+        AccessTokenParamName: /GoCardless/Access-Token
+        AccessTokenExpiresParamName: /GoCardless/Access-Token-Expires
+        RefreshTokenParamName: /GoCardless/Refresh-Token
+        RefreshTokenExpiresParamName: /GoCardless/Refresh-Token-Expires
       Policies:
         - LambdaInvokePolicy:
-            FunctionName: !Ref UpdateApiCredentialsFunction
+            FunctionName: !Ref 'UpdateApiCredentialsFunction'
         - SSMParameterReadPolicy:
-            ParameterName: GoCardless/*
+            ParameterName: 'GoCardless/*'
         - KMSDecryptPolicy:
             KeyId: !Ref KmsKey
+        - KMSEncryptPolicy:
+            KeyId: !Ref KmsKey
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                -  ssm:PutParameter
+              Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/GoCardless/*'
   
   KmsKey:
     Type: AWS::KMS::Key
     Properties:
       Description: The key used to encrypt sensitive information related to the openbanking-expenses-ingest service
       KeyPolicy:
-        Version: 2012-10-17
+        Version: '2012-10-17'
         Id: openbanking-expenses-ingest-key-policy
         Statement:
           - Sid: Enable IAM User Permissions
             Effect: Allow
             Principal:
-              AWS: !Sub arn:aws:iam::${AWS::AccountId}:root
-            Action: kms:*
+              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+            Action: 'kms:*'
             Resource: '*'
   
   KmsKeyAlias:

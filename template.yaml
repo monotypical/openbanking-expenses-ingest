@@ -52,6 +52,15 @@ Resources:
         - x86_64
       Handler: index.handler
       Timeout: 30
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref RequisitionTable
+        - DynamoDBWritePolicy:
+            TableName: !Ref RequisitionTable
+        - KMSDecryptPolicy:
+            KeyId: !Ref KmsKey
+        - KMSEncryptPolicy:
+            KeyId: !Ref KmsKey
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
@@ -74,10 +83,10 @@ Resources:
         AccessTokenExpiresParamName: /GoCardless/Access-Token-Expires
         RefreshTokenParamName: /GoCardless/Refresh-Token
         RefreshTokenExpiresParamName: /GoCardless/Refresh-Token-Expires
-        RequisitionIdParamName: /GoCardless/Requisition-Id
-        RequisitionExpiresParamName: /GoCardless/Requisition-Expires
+        RequisitionReferenceParamName: /GoCardless/Requisition-Reference
         BankName: !Ref BankName
         BankCountry: !Ref BankCountry
+        RequisitionTableName: !Ref RequisitionTable
         RequisitionNotificationTopic: !Ref RequisitionSnsTopic
       Policies:
         - LambdaInvokePolicy:
@@ -102,6 +111,25 @@ Resources:
               Action:
                 - kms:GenerateDataKey
               Resource: !GetAtt KmsKey.Arn
+
+  RequisitionTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: GocCardless-Requisition
+      AttributeDefinitions:
+        - AttributeName: reference
+          AttributeType: S
+      KeySchema:
+        - AttributeName: reference
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+      SSESpecification:
+        KMSMasterKeyId: !Ref KmsKey
+        SSEEnabled: true
+        SSEType: KMS
+      TimeToLiveSpecification:
+        AttributeName: expires
+        Enabled: true
   
   RequisitionSnsTopic:
     Type: AWS::SNS::Topic

@@ -131,22 +131,18 @@
           }
         ],
         "ResultPath": null,
-        "Next": "Get Requisition SSM Parameters"
+        "Next": "Get Requisition Reference"
       },
-      "Get Requisition SSM Parameters": {
+      "Get Requisition Reference": {
         "Type": "Task",
         "Parameters": {
-          "Names": [
-            "/GoCardless/Requisition-Id",
-            "/GoCardless/Requisition-Expires"
-          ],
+          "Name": "/GoCardless/Requisition-Reference",
           "WithDecryption": true
         },
-        "Resource": "arn:aws:states:::aws-sdk:ssm:getParameters",
+        "Resource": "arn:aws:states:::aws-sdk:ssm:getParameter",
         "ResultPath": "$.Requisition",
         "ResultSelector": {
-          "Value.$": "$.Parameters[1].Value",
-          "Expires.$": "$.Parameters[0].Value"
+          "Reference.$": "$.Parameter.Value"
         },
         "Next": "Update Requisition"
       },
@@ -157,7 +153,10 @@
           "FunctionName": "${UpdateRequisitionFunctionARN}:$LATEST",
           "Payload": {
             "AccessToken.$": "$.AccessToken",
-            "Requisition.$": "$.Requisition",
+            "Requisition": {
+              "Reference.$": "$.Requisition.Reference",
+              "TableName": "${RequisitionTableName}"
+            },
             "Bank": {
               "Name": "${BankName}",
               "Country": "${BankCountry}"
@@ -165,38 +164,22 @@
           }
         },
         "OutputPath": "$.Payload",
-        "Next": "Update Requisition SSM Params and Notify"
+        "Next": "Update Requisition Reference and Notify"
       },
-      "Update Requisition SSM Params and Notify": {
+      "Update Requisition Reference and Notify": {
         "Type": "Parallel",
         "Branches": [
           {
-            "StartAt": "Update Requisition Id",
+            "StartAt": "Update Requisition Reference",
             "States": {
-              "Update Requisition Id": {
+              "Update Requisition Reference": {
                 "Type": "Task",
                 "End": true,
                 "Parameters": {
-                  "Name": "${RequisitionIdParamName}",
-                  "Value.$": "$.Requisition.Value",
+                  "Name": "${RequisitionReferenceParamName}",
+                  "Value.$": "$.Requisition.Reference",
                   "Type": "SecureString",
                   "KeyId": "${SsmKeyId}",
-                  "Overwrite": true
-                },
-                "Resource": "arn:aws:states:::aws-sdk:ssm:putParameter"
-              }
-            }
-          },
-          {
-            "StartAt": "Update Requisition Expiration",
-            "States": {
-              "Update Requisition Expiration": {
-                "Type": "Task",
-                "End": true,
-                "Parameters": {
-                  "Name": "${RequisitionExpiresParamName}",
-                  "Value.$": "States.Format('\"{}\"', $.Requisition.Expires)",
-                  "Type": "String",
                   "Overwrite": true
                 },
                 "Resource": "arn:aws:states:::aws-sdk:ssm:putParameter"

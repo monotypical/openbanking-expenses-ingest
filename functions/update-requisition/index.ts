@@ -1,10 +1,12 @@
 import { DynamoDBClient, GetItemCommand, PutItemCommand } from "@aws-sdk/client-dynamodb"
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb"
+import { SFNClient, SendTaskSuccessCommand } from "@aws-sdk/client-sfn"
 import { Handler } from "aws-lambda"
 import { addDays, differenceInHours, fromUnixTime, getUnixTime } from "date-fns"
 import NordigenClient from "nordigen-node"
 import { v4 as uuidv4 } from "uuid"
 import type { ExpiringValue, Requisition } from "../../lib/types"
+import { PublishCommand, SNSClient } from "@aws-sdk/client-sns"
 
 type UpdateRequisitionInput = {
     AccessToken: ExpiringValue<string>
@@ -16,13 +18,14 @@ type UpdateRequisitionInput = {
         Name: string
         Country: string
     }
+    TaskToken: string
+    NotificationTopicARN: string
+    RequisitionCompleteCallbackURL: string
 }
 
 type UpdateRequisitionOutput = {
-    AccessToken: ExpiringValue<string>
     Requisition: {
         Reference: string
-        ConfirmLink?: string
     }
 }
 
@@ -41,30 +44,13 @@ type ApiRequisition = {
 }
 
 const dynamoDbClient = new DynamoDBClient()
+const sfnClient = new SFNClient()
+const snsClient = new SNSClient()
 
 const TRANSACTION_DAYS = 90
 
-export const handler: Handler = async (input: UpdateRequisitionInput): Promise<UpdateRequisitionOutput> => {
-    const existingRequisition: Requisition = unmarshall(
-        (await dynamoDbClient.send(
-            new GetItemCommand({
-                Key: { reference: { "S": input.Requisition.Reference} },
-                TableName: input.Requisition.TableName,
-            })
-        )).Item!
-    ) as Requisition
-
-    const requisitionValidityHours = differenceInHours(fromUnixTime(existingRequisition.expires), new Date())
-    if (requisitionValidityHours >= 1) {
-        console.log("Requisition still valid, not updating")
-        return {
-            AccessToken: input.AccessToken,
-            Requisition: {
-                Reference: existingRequisition.reference
-            }
-        }
-    }
-
+const useNewRequisition = async (input: UpdateRequisitionInput): Promise<UpdateRequisitionOutput> => {
+    console.log("Requesting new requisition")
     const nordigenClient = new NordigenClient({ secretId: "Not used", secretKey: "Not used" })
     nordigenClient.token = input.AccessToken.Value
 
@@ -81,7 +67,7 @@ export const handler: Handler = async (input: UpdateRequisitionInput): Promise<U
 
     const requisitionReference = uuidv4()
     const apiRequisition: ApiRequisition = await nordigenClient.requisition.createRequisition({
-        redirectUrl: "https://example.com",
+        redirectUrl: input.RequisitionCompleteCallbackURL,
         institutionId: institution.id,
         reference: requisitionReference,
         agreement: undefined,
@@ -101,9 +87,9 @@ export const handler: Handler = async (input: UpdateRequisitionInput): Promise<U
         expires: requisitionExpires,
         institutionId: apiRequisition.institution_id,
         status: "Pending",
+        taskToken: input.TaskToken,
         language: apiRequisition.user_language,
     }
-    console.log(JSON.stringify(requisition))
     await dynamoDbClient.send(
         new PutItemCommand({
             TableName: input.Requisition.TableName,
@@ -112,11 +98,54 @@ export const handler: Handler = async (input: UpdateRequisitionInput): Promise<U
     )
     console.log(`Inserted requisition reference ${requisition.reference} into DynamoDB`)
 
+    await snsClient.send(new PublishCommand({
+        TopicArn: input.NotificationTopicARN,
+        Message: `Please click the following link to authorize ingest-shared-expenses on AWS to read your bank account transactions, in order to export these to google sheets\n\n${requisition.confirmLink}`,
+        Subject: "A GoCardless Bank Account Data requisition requests requires your approval"
+    }))
+    console.log("Published notification to SNS")
+
     return {
-        AccessToken: input.AccessToken,
         Requisition: {
-            Reference: requisition.reference,
-            ConfirmLink: requisition.confirmLink,
-        },
+            Reference: requisition.reference
+        }
+    }
+}
+
+const useExistingRequisiton = async (input: UpdateRequisitionInput, sfnClient: SFNClient): Promise<UpdateRequisitionOutput> => {
+    const output: UpdateRequisitionOutput = {
+        Requisition: {
+            Reference: input.Requisition.Reference
+        }
+    }
+    await sfnClient.send(new SendTaskSuccessCommand({
+        taskToken: input.TaskToken,
+        output: JSON.stringify(output)
+    }))
+    return output
+}
+
+export const handler: Handler = async (input: UpdateRequisitionInput): Promise<UpdateRequisitionOutput> => {
+    const existingRequisitonResponse = await dynamoDbClient.send(
+        new GetItemCommand({
+            Key: marshall({ reference: input.Requisition.Reference }),
+            TableName: input.Requisition.TableName,
+        })
+    )
+    
+    if (existingRequisitonResponse.Item === undefined) {
+        console.log(`Existing requisition ${input.Requisition.Reference} not found`)
+        return useNewRequisition(input)
+    }
+
+    const existingRequisition: Requisition = unmarshall(existingRequisitonResponse.Item) as Requisition
+
+    const requisitionValidityHours = differenceInHours(fromUnixTime(existingRequisition.expires), new Date())
+    if (requisitionValidityHours >= 1) {
+        console.log(`Requisition ${input.Requisition.Reference} still valid, not updating`)
+        return useExistingRequisiton(input, sfnClient)
+    } else {
+        console.log(`Requisition ${input.Requisition.Reference} expiring soon, renewing`)
+        return useNewRequisition(input)
     }
 }

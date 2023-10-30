@@ -61,6 +61,57 @@ Resources:
             KeyId: !Ref KmsKey
         - KMSEncryptPolicy:
             KeyId: !Ref KmsKey
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt RequisitionSnsTopic.TopicName
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - kms:GenerateDataKey
+              Resource: !GetAtt KmsKey.Arn
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: 'es2020'
+        EntryPoints:
+          - index.ts
+
+  HandleRequisitionResponseFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: Handles the requisition complete response
+      CodeUri: functions/handle-requisition-response/
+      Environment:
+        Variables:
+          REQUISITIONS_TABLE_NAME: !Ref RequisitionTable
+      Runtime: nodejs18.x
+      Architectures:
+        - x86_64
+      Handler: index.handler
+      Timeout: 30
+      Events:
+        RequisitionComplete:
+          Type: Api
+          Properties:
+            Path: /requisition-complete
+            Method: GET
+            RestApiId: !Ref RequisitionApi
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref RequisitionTable
+        - DynamoDBWritePolicy:
+            TableName: !Ref RequisitionTable
+        - KMSEncryptPolicy:
+            KeyId: !Ref KmsKey
+        - KMSDecryptPolicy:
+            KeyId: !Ref KmsKey
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - states:SendTaskSuccess
+              Resource: !Sub arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:*
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
@@ -87,7 +138,10 @@ Resources:
         BankName: !Ref BankName
         BankCountry: !Ref BankCountry
         RequisitionTableName: !Ref RequisitionTable
-        RequisitionNotificationTopic: !Ref RequisitionSnsTopic
+        RequisitionNotificationTopicARN: !Ref RequisitionSnsTopic
+        RequisitionCompleteEndpointUrl: !Sub
+          - "https://${ApiId}.execute-api.${AWS::Region}.amazonaws.com/v1/requisition-complete"
+          - ApiId: !Ref RequisitionApi
       Policies:
         - LambdaInvokePolicy:
             FunctionName: !Ref UpdateApiCredentialsFunction
@@ -99,8 +153,6 @@ Resources:
             KeyId: !Ref KmsKey
         - KMSEncryptPolicy:
             KeyId: !Ref KmsKey
-        - SNSPublishMessagePolicy:
-            TopicName: GoCardless-Bank-Account-Data-Agreement
         - Version: '2012-10-17'
           Statement:
             - Effect: Allow
@@ -109,13 +161,13 @@ Resources:
               Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/GoCardless/*'
             - Effect: Allow
               Action:
-                - kms:GenerateDataKey
-              Resource: !GetAtt KmsKey.Arn
+                - states:SendTaskSuccess
+              Resource: !Sub arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:*
 
   RequisitionTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: GocCardless-Requisition
+      TableName: GoCardless-Requisition
       AttributeDefinitions:
         - AttributeName: reference
           AttributeType: S
@@ -130,6 +182,16 @@ Resources:
       TimeToLiveSpecification:
         AttributeName: expires
         Enabled: true
+  
+  RequisitionApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: GoCardless Requisition API
+      Description: "API to update the status of requisitions when they have been authorized by the end user"
+      StageName: v1
+      MethodSettings:
+        - ResourcePath: /requisition-complete
+          HttpMethod: GET
   
   RequisitionSnsTopic:
     Type: AWS::SNS::Topic

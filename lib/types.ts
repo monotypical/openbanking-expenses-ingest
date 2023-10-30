@@ -6,6 +6,7 @@ type Requisition = {
   expires: number
   institutionId: string
   status: ConfirmationStatus
+  taskToken: string
   language: string
 }
 

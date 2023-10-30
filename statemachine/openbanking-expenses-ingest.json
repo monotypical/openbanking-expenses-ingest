@@ -148,7 +148,7 @@
       },
       "Update Requisition": {
         "Type": "Task",
-        "Resource": "arn:aws:states:::lambda:invoke",
+        "Resource": "arn:aws:states:::lambda:invoke.waitForTaskToken",
         "Parameters": {
           "FunctionName": "${UpdateRequisitionFunctionARN}:$LATEST",
           "Payload": {
@@ -160,71 +160,13 @@
             "Bank": {
               "Name": "${BankName}",
               "Country": "${BankCountry}"
-            }
+            },
+            "TaskToken.$": "$$.Task.Token",
+            "NotificationTopicARN": "${RequisitionNotificationTopicARN}",
+            "RequisitionCompleteCallbackURL": "${RequisitionCompleteEndpointUrl}"
           }
         },
-        "OutputPath": "$.Payload",
-        "Next": "Update Requisition Reference and Notify"
-      },
-      "Update Requisition Reference and Notify": {
-        "Type": "Parallel",
-        "Branches": [
-          {
-            "StartAt": "Update Requisition Reference",
-            "States": {
-              "Update Requisition Reference": {
-                "Type": "Task",
-                "End": true,
-                "Parameters": {
-                  "Name": "${RequisitionReferenceParamName}",
-                  "Value.$": "$.Requisition.Reference",
-                  "Type": "SecureString",
-                  "KeyId": "${SsmKeyId}",
-                  "Overwrite": true
-                },
-                "Resource": "arn:aws:states:::aws-sdk:ssm:putParameter"
-              }
-            }
-          },
-          {
-            "StartAt": "Notify user if confirmation needed",
-            "States": {
-              "Notify user if confirmation needed": {
-                "Type": "Choice",
-                "Choices": [
-                  {
-                    "Variable": "$.Requisition.ConfirmLink",
-                    "IsPresent": true,
-                    "Next": "Notify user"
-                  },
-                  {
-                    "Not": {
-                      "Variable": "$.Requisition.ConfirmLink",
-                      "IsPresent": true
-                    },
-                    "Next": "Pass"
-                  }
-                ],
-                "Default": "Pass"
-              },
-              "Notify user": {
-                "Type": "Task",
-                "Resource": "arn:aws:states:::aws-sdk:sns:publish",
-                "Parameters": {
-                  "TopicArn": "${RequisitionNotificationTopic}",
-                  "Message.$": "States.Format('Please click the following link to authorize ingest-shared-expenses on AWS to read your bank account transactions, in order to export these to google sheets\n\n{}', $.Requisition.ConfirmLink)",
-                  "Subject": "A GoCardless Bank Account Data requisition requests requires your approval"
-                },
-                "End": true
-              },
-              "Pass": {
-                "Type": "Pass",
-                "End": true
-              }
-            }
-          }
-        ],
-        "ResultPath": null,
+        "ResultPath": "$.Requisition",
         "End": true
       }
     }

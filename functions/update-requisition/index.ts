@@ -24,9 +24,8 @@ type UpdateRequisitionInput = {
 }
 
 type UpdateRequisitionOutput = {
-    Requisition: {
-        Reference: string
-    }
+    Reference: string
+    Updated: boolean
 }
 
 type Institution = {
@@ -106,17 +105,15 @@ const useNewRequisition = async (input: UpdateRequisitionInput): Promise<UpdateR
     console.log("Published notification to SNS")
 
     return {
-        Requisition: {
-            Reference: requisition.reference
-        }
+        Reference: requisition.reference,
+        Updated: true
     }
 }
 
 const useExistingRequisiton = async (input: UpdateRequisitionInput, sfnClient: SFNClient): Promise<UpdateRequisitionOutput> => {
     const output: UpdateRequisitionOutput = {
-        Requisition: {
-            Reference: input.Requisition.Reference
-        }
+        Reference: input.Requisition.Reference,
+        Updated: false
     }
     await sfnClient.send(new SendTaskSuccessCommand({
         taskToken: input.TaskToken,

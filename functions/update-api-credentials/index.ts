@@ -2,7 +2,7 @@ import { GetParameterCommand, SSMClient } from "@aws-sdk/client-ssm"
 import { Handler } from "aws-lambda"
 import { differenceInHours, differenceInMinutes, fromUnixTime, getUnixTime } from "date-fns"
 import NordigenClient from "nordigen-node"
-import type { ExpiringValue } from "../../lib/types"
+import type { ApiCredential, ExpiringValue } from "../../lib/types"
 
 type UpdateApiCredentialsInput = {
     AccessToken: ExpiringValue<string>
@@ -12,8 +12,8 @@ type UpdateApiCredentialsInput = {
 }
 
 type UpdateApiCredentialsOutput = {
-    AccessToken: ExpiringValue<string>
-    RefreshToken: ExpiringValue<string>
+    AccessToken: ApiCredential
+    RefreshToken: ApiCredential
 }
 
 const ssmClient = new SSMClient()
@@ -21,7 +21,7 @@ const ssmClient = new SSMClient()
 const refreshToken = async (
     nordigenClient: NordigenClient,
     refreshToken: ExpiringValue<string>
-): Promise<ExpiringValue<string>> => {
+): Promise<ApiCredential> => {
     console.log("Refreshing access token")
     const newToken = (await nordigenClient.exchangeToken({
         refreshToken: refreshToken.Value,
@@ -33,6 +33,7 @@ const refreshToken = async (
     return {
         Value: newToken.access,
         Expires: accessTokenExpiresTimestamp,
+        Updated: true
     }
 }
 
@@ -54,10 +55,12 @@ const getNewTokens = async (nordigenClient: NordigenClient): Promise<UpdateApiCr
         AccessToken: {
             Value: newTokens.access,
             Expires: accessTokenExpiresTimestamp,
+            Updated: true
         },
         RefreshToken: {
             Value: newTokens.refresh,
             Expires: refreshTokenExpiresTimestamp,
+            Updated: true
         },
     }
 }
@@ -86,8 +89,8 @@ export const handler: Handler = async (input: UpdateApiCredentialsInput): Promis
     if (accessTokenValidForHours >= 1) {
         console.log("Access token still valid, not updating or refreshing")
         return {
-            AccessToken: input.AccessToken,
-            RefreshToken: input.RefreshToken,
+            AccessToken: { ...input.AccessToken, Updated: false },
+            RefreshToken: { ...input.RefreshToken, Updated: false },
         }
     }
 
@@ -103,7 +106,7 @@ export const handler: Handler = async (input: UpdateApiCredentialsInput): Promis
         const newAccessToken = await refreshToken(nordigenClient, input.RefreshToken)
         return {
             AccessToken: newAccessToken,
-            RefreshToken: input.RefreshToken,
+            RefreshToken: { ...input.RefreshToken, Updated: false },
         }
     } else {
         const newTokens = await getNewTokens(nordigenClient)

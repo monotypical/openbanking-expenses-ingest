@@ -17,4 +17,10 @@ type ExpiringValue<V> = {
   Expires: number
 }
 
-export type { Requisition, ConfirmationStatus, ExpiringValue }
+type Updateable = {
+  Updated: boolean
+}
+
+type ApiCredential = ExpiringValue<string> & Updateable
+
+export type { Requisition, ConfirmationStatus, ExpiringValue, Updateable, ApiCredential }

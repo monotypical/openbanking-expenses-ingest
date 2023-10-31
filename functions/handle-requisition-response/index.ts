@@ -6,9 +6,8 @@ import { StatusCodes } from "http-status-codes"
 import { ConfirmationStatus } from "../../lib/types"
 
 type UpdateRequisitionOutput = {
-    Requisition: {
-        Reference: string
-    }
+    Reference: string
+    Updated: boolean
 }
 
 const sfnClient = new SFNClient()
@@ -60,9 +59,8 @@ export const handler: Handler = async (event: APIGatewayEvent) => {
     }
 
     const taskOutput: UpdateRequisitionOutput = {
-        Requisition: {
-            Reference: reference
-        }
+        Reference: reference,
+        Updated: true
     }
     const taskSuccessCommand = new SendTaskSuccessCommand({
         taskToken: dynamoRequisition.taskToken,

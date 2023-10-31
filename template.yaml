@@ -69,6 +69,12 @@ Resources:
               Action:
                 - kms:GenerateDataKey
               Resource: !GetAtt KmsKey.Arn
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - states:SendTaskSuccess
+              Resource: !Sub arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:*
     Metadata:
       BuildMethod: esbuild
       BuildProperties:

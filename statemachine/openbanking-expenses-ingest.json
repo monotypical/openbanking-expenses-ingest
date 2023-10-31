@@ -64,11 +64,27 @@
         "Type": "Parallel",
         "Branches": [
           {
-            "StartAt": "Update Access Token",
+            "StartAt": "Update Access Token If Updated",
             "States": {
-              "Update Access Token": {
+              "Update Access Token If Updated": {
+                "Type": "Choice",
+                "Choices": [
+                  {
+                    "Variable": "$.AccessToken.Updated",
+                    "BooleanEquals": true,
+                    "Next": "Update Access Token SSM Param"
+                  },
+                  {
+                    "Variable": "$.AccessToken.Updated",
+                    "BooleanEquals": false,
+                    "Next": "Don't Update Access Token SSM Param"
+                  }
+                ],
+                "Default": "Update Access Token SSM Param"
+              },
+              "Update Access Token SSM Param": {
                 "Type": "Task",
-                "End": true,
+                "Resource": "arn:aws:states:::aws-sdk:ssm:putParameter",
                 "Parameters": {
                   "Name": "${AccessTokenParamName}",
                   "Value.$": "$.AccessToken.Value",
@@ -76,32 +92,49 @@
                   "KeyId": "${SsmKeyId}",
                   "Overwrite": true
                 },
-                "Resource": "arn:aws:states:::aws-sdk:ssm:putParameter"
-              }
-            }
-          },
-          {
-            "StartAt": "Update Access Token Expiration",
-            "States": {
+                "ResultPath": null,
+                "Next": "Update Access Token Expiration"
+              },
               "Update Access Token Expiration": {
                 "Type": "Task",
-                "End": true,
+                "Resource": "arn:aws:states:::aws-sdk:ssm:putParameter",
                 "Parameters": {
                   "Name": "${AccessTokenExpiresParamName}",
                   "Value.$": "States.Format('\"{}\"', $.AccessToken.Expires)",
                   "Type": "String",
                   "Overwrite": true
                 },
-                "Resource": "arn:aws:states:::aws-sdk:ssm:putParameter"
+                "ResultPath": null,
+                "End": true
+              },
+              "Don't Update Access Token SSM Param": {
+                "Type": "Pass",
+                "End": true
               }
             }
           },
           {
-            "StartAt": "Update Refresh Token",
+            "StartAt": "Update Refresh Token If Updated",
             "States": {
-              "Update Refresh Token": {
+              "Update Refresh Token If Updated": {
+                "Type": "Choice",
+                "Choices": [
+                  {
+                    "Variable": "$.RefreshToken.Updated",
+                    "BooleanEquals": true,
+                    "Next": "Update Refresh Token SSM Param"
+                  },
+                  {
+                    "Variable": "$.RefreshToken.Updated",
+                    "BooleanEquals": false,
+                    "Next": "Don't Update Refresh Token SSM Param"
+                  }
+                ],
+                "Default": "Update Refresh Token SSM Param"
+              },
+              "Update Refresh Token SSM Param": {
                 "Type": "Task",
-                "End": true,
+                "Resource": "arn:aws:states:::aws-sdk:ssm:putParameter",
                 "Parameters": {
                   "Name": "${RefreshTokenParamName}",
                   "Value.$": "$.RefreshToken.Value",
@@ -109,31 +142,32 @@
                   "KeyId": "${SsmKeyId}",
                   "Overwrite": true
                 },
-                "Resource": "arn:aws:states:::aws-sdk:ssm:putParameter"
-              }
-            }
-          },
-          {
-            "StartAt": "Update Refresh Token Expiration",
-            "States": {
+                "ResultPath": null,
+                "Next": "Update Refresh Token Expiration"
+              },
               "Update Refresh Token Expiration": {
                 "Type": "Task",
-                "End": true,
+                "Resource": "arn:aws:states:::aws-sdk:ssm:putParameter",
                 "Parameters": {
                   "Name": "${RefreshTokenExpiresParamName}",
                   "Value.$": "States.Format('\"{}\"', $.RefreshToken.Expires)",
                   "Type": "String",
                   "Overwrite": true
                 },
-                "Resource": "arn:aws:states:::aws-sdk:ssm:putParameter"
+                "ResultPath": null,
+                "End": true
+              },
+              "Don't Update Refresh Token SSM Param": {
+                "Type": "Pass",
+                "End": true
               }
             }
           }
         ],
         "ResultPath": null,
-        "Next": "Get Requisition Reference"
+        "Next": "Get Requisition Reference From SSM"
       },
-      "Get Requisition Reference": {
+      "Get Requisition Reference From SSM": {
         "Type": "Task",
         "Parameters": {
           "Name": "/GoCardless/Requisition-Reference",
@@ -167,6 +201,38 @@
           }
         },
         "ResultPath": "$.Requisition",
+        "Next": "Update Requisition SSM Param If Updated"
+      },
+      "Update Requisition SSM Param If Updated": {
+        "Type": "Choice",
+        "Choices": [
+          {
+            "Variable": "$.Requisition.Updated",
+            "BooleanEquals": true,
+            "Next": "Update Requisition SSM Param"
+          },
+          {
+            "Variable": "$.Requisition.Updated",
+            "BooleanEquals": false,
+            "Next": "Don't Update Requisition SSM Param"
+          }
+        ],
+        "Default": "Update Requisition SSM Param"
+      },
+      "Update Requisition SSM Param": {
+        "Type": "Task",
+        "Resource": "arn:aws:states:::aws-sdk:ssm:putParameter",
+        "Parameters": {
+          "Name": "${RequisitionReferenceParamName}",
+          "Value.$": "$.Requisition.Reference",
+          "Type": "SecureString",
+          "KeyId": "${SsmKeyId}",
+          "Overwrite": true
+        },
+        "Next": "Get API Credential SSM Parameters"
+      },
+      "Don't Update Requisition SSM Param": {
+        "Type": "Pass",
         "End": true
       }
     }

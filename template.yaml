@@ -125,6 +125,42 @@ Resources:
         Target: 'es2020'
         EntryPoints:
           - index.ts
+    
+  GetTransactionsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/get-transactions/
+      Environment:
+        Variables:
+          TRANSACTIONS_S3_BUCKET: !Ref TransactionsListBucket
+          REQUISITIONS_TABLE_NAME: !Ref RequisitionTable
+      Runtime: nodejs18.x
+      Architectures:
+        - x86_64
+      Handler: index.handler
+      Timeout: 30
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref RequisitionTable
+        - KMSDecryptPolicy:
+            KeyId: !Ref KmsKey
+        - KMSEncryptPolicy:
+            KeyId: !Ref KmsKey
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - kms:GenerateDataKey
+              Resource: !GetAtt KmsKey.Arn
+        - S3WritePolicy:
+            BucketName: !Ref TransactionsListBucket
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: 'es2020'
+        EntryPoints:
+          - index.ts
   
   IngestSharedExpensesStateMachine:
     Type: AWS::Serverless::StateMachine
@@ -148,11 +184,14 @@ Resources:
         RequisitionCompleteEndpointUrl: !Sub
           - "https://${ApiId}.execute-api.${AWS::Region}.amazonaws.com/v1/requisition-complete"
           - ApiId: !Ref RequisitionApi
+        GetTransactionsFunctionARN: !Ref GetTransactionsFunction
       Policies:
         - LambdaInvokePolicy:
             FunctionName: !Ref UpdateApiCredentialsFunction
         - LambdaInvokePolicy:
             FunctionName: !Ref UpdateRequisitionFunction
+        - LambdaInvokePolicy:
+            FunctionName: !Ref GetTransactionsFunction
         - SSMParameterReadPolicy:
             ParameterName: 'GoCardless/*'
         - KMSDecryptPolicy:
@@ -208,6 +247,25 @@ Resources:
       Subscription:
         - Endpoint: !Ref RequisitionNotificationAddress
           Protocol: email
+
+  TransactionsListBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: gocardless-bank-account-data-transactions
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets : true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: aws:kms
+              KMSMasterKeyID: !Ref KmsKey
+      VersioningConfiguration:
+        Status: Enabled
 
   KmsKey:
     Type: AWS::KMS::Key

@@ -100,7 +100,7 @@
                 "Resource": "arn:aws:states:::aws-sdk:ssm:putParameter",
                 "Parameters": {
                   "Name": "${AccessTokenExpiresParamName}",
-                  "Value.$": "States.Format('\"{}\"', $.AccessToken.Expires)",
+                  "Value.$": "States.Format('{}', $.AccessToken.Expires)",
                   "Type": "String",
                   "Overwrite": true
                 },
@@ -150,7 +150,7 @@
                 "Resource": "arn:aws:states:::aws-sdk:ssm:putParameter",
                 "Parameters": {
                   "Name": "${RefreshTokenExpiresParamName}",
-                  "Value.$": "States.Format('\"{}\"', $.RefreshToken.Expires)",
+                  "Value.$": "States.Format('{}', $.RefreshToken.Expires)",
                   "Type": "String",
                   "Overwrite": true
                 },
@@ -233,6 +233,22 @@
       },
       "Don't Update Requisition SSM Param": {
         "Type": "Pass",
+        "Next": "Get Transactions"
+      },
+      "Get Transactions": {
+        "Type": "Task",
+        "Resource": "arn:aws:states:::lambda:invoke",
+        "OutputPath": "$.Payload",
+        "Parameters": {
+          "FunctionName": "${GetTransactionsFunctionARN}:$LATEST",
+          "Payload": {
+            "AccessToken.$": "$.AccessToken.Value",
+            "Requisition.$": "$.Requisition.Reference",
+            "DateFrom": "2023-10-01",
+            "DateTo": "2023-11-01",
+            "Country": "${BankCountry}"
+          }
+        },
         "End": true
       }
     }

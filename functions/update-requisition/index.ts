@@ -4,9 +4,9 @@ import { SFNClient, SendTaskSuccessCommand } from "@aws-sdk/client-sfn"
 import { Handler } from "aws-lambda"
 import { addDays, differenceInHours, fromUnixTime, getUnixTime } from "date-fns"
 import NordigenClient from "nordigen-node"
-import { v4 as uuidv4 } from "uuid"
 import type { ExpiringValue, Requisition } from "../../lib/types"
 import { PublishCommand, SNSClient } from "@aws-sdk/client-sns"
+import { randomUUID } from "crypto"
 
 type UpdateRequisitionInput = {
     AccessToken: ExpiringValue<string>
@@ -64,7 +64,7 @@ const useNewRequisition = async (input: UpdateRequisitionInput): Promise<UpdateR
         console.log(`Using institution "${institution.name}": ${institution.id}`)
     }
 
-    const requisitionReference = uuidv4()
+    const requisitionReference = randomUUID()
     const apiRequisition: ApiRequisition = await nordigenClient.requisition.createRequisition({
         redirectUrl: input.RequisitionCompleteCallbackURL,
         institutionId: institution.id,

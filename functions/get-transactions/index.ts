@@ -27,7 +27,7 @@ type UploadTransactionsOutput = {
 const AccountUser = z.object({
     DebtorName: z.string(),
     Reference: z.string(),
-    ExportName: z.string()
+    ExportName: z.string(),
 })
 type AccountUser = z.infer<typeof AccountUser>
 
@@ -55,25 +55,17 @@ const ApiTransactionResponse = z.object({
 })
 type ApiTransactionResponse = z.infer<typeof ApiTransactionResponse>
 
-type NonBalanceTransaction = {
+type TransactionType = "Refund" | "Outgoing Payment" | "Balance Top Up"
+type RecognisedCurrencyTransaction = {
     date: string // in ISO-8601 date format
     amount: number
     description: string
-    type: "Non Balance Transaction"
+    type: TransactionType
 }
-type BalanceTopUp = {
-    date: string // in ISO-8601 date format
-    amount: number
-    person: string // First name of person, title cased
-    type: "Balance Top Up"
-}
-type UnrecognisedCurrencyTransaction = {
-    date: string // in ISO-8601 date format
-    description: string
-    type: "Non Balance Transaction" | "Balance Top Up"
+type UnrecognisedCurrencyTransaction = RecognisedCurrencyTransaction & {
     error: "Unrecognised currency"
 }
-type Transaction = NonBalanceTransaction | BalanceTopUp | UnrecognisedCurrencyTransaction
+type Transaction = RecognisedCurrencyTransaction | UnrecognisedCurrencyTransaction
 
 const TRANSACTIONS_BUCKET = process.env.TRANSACTIONS_BUCKET
 const REQUISITIONS_TABLE_NAME = process.env.REQUISITIONS_TABLE_NAME
@@ -107,10 +99,12 @@ const getAccountId = async (nordigenClient: NordigenClient, requisitonReference:
 
 const getAccountUsers = async (bucketName: string, objectKey: string): Promise<AccountUser[]> => {
     try {
-        const s3ObjectResponse = await s3Client.send(new GetObjectCommand({
-            Bucket: bucketName,
-            Key: objectKey
-        }))
+        const s3ObjectResponse = await s3Client.send(
+            new GetObjectCommand({
+                Bucket: bucketName,
+                Key: objectKey,
+            })
+        )
         const accountUsersString = await s3ObjectResponse.Body?.transformToString()
         if (!accountUsersString) {
             throw new Error(`Failed to read account users file ${objectKey} in bucket ${bucketName} from S3`)
@@ -164,41 +158,20 @@ const formatTransaction = (
     accountUsers: AccountUser[],
     currency: string
 ): Transaction => {
-    const date = format(apiTransaction.valueDate, DATE_FORMAT)
     const { isFromAccountUser, person: accountUser } = isTransactionFromAccountUser(apiTransaction, accountUsers)
-    if (isFromAccountUser) {
-        if (apiTransaction.transactionAmount.currency !== currency) {
-            return {
-                type: "Balance Top Up",
-                date,
-                description: accountUser!,
-                error: "Unrecognised currency",
-            }
-        } else {
-            return {
-                type: "Balance Top Up",
-                date,
-                person: accountUser!,
-                amount: apiTransaction.transactionAmount.amount,
-            }
-        }
-    } else {
-        const description = apiTransaction.creditorName || apiTransaction.remittanceInformationUnstructured
-        if (apiTransaction.transactionAmount.currency !== currency) {
-            return {
-                type: "Non Balance Transaction",
-                date,
-                description,
-                error: "Unrecognised currency",
-            }
-        } else {
-            return {
-                type: "Non Balance Transaction",
-                date,
-                description,
-                amount: -apiTransaction.transactionAmount.amount,
-            }
-        }
+    const amount = isFromAccountUser ? apiTransaction.transactionAmount.amount : -apiTransaction.transactionAmount.amount
+    const type: TransactionType = isFromAccountUser ? "Balance Top Up" : amount < 0 ? "Refund" : "Outgoing Payment"
+    const date = format(apiTransaction.valueDate, DATE_FORMAT)
+    const description = isFromAccountUser
+        ? accountUser!
+        : apiTransaction.creditorName || apiTransaction.remittanceInformationUnstructured
+    const error = apiTransaction.transactionAmount.currency === currency ? undefined : "Unrecognised currency"
+    return {
+        type,
+        date,
+        amount,
+        description,
+        error,
     }
 }
 
@@ -246,6 +219,6 @@ export const handler: Handler = async (input: UploadTransactionsInput): Promise<
 
     return {
         RawTransactionsObjectKey: rawTransactionsObjectKey,
-        FormattedTransactionsObjectKey: formattedTransactionsKey
+        FormattedTransactionsObjectKey: formattedTransactionsKey,
     }
 }

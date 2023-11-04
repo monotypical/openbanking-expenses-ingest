@@ -17,6 +17,19 @@ Parameters:
   RequisitionNotificationAddress:
     Type: String
     Description: The email address to notify when user action is needed to generate a requisition
+  TransactionListRecipient:
+    Type: String
+    Description: An email addresses to receive the final list of transactions
+  TransactionListSender:
+    Type: String
+    Description: The email address to send the final list of transactions from
+  TransactionCurrency:
+    Type: String
+    Description: The currencty to validate all transaction amounts against. Transactions not in this currency will be flagged
+    Default: GBP
+  AccountUsersObjectKey:
+    Type: String
+    Description: "The object key in the transactions bucket to find the list of account users. The required format is a JSON file containting an array of { DebtorName: string, Reference: string, ExportName: string }. For more detail see type AccountUser in get-transactions"
 
 Resources:
   UpdateApiCredentialsFunction:
@@ -132,7 +145,7 @@ Resources:
       CodeUri: functions/get-transactions/
       Environment:
         Variables:
-          TRANSACTIONS_S3_BUCKET: !Ref TransactionsListBucket
+          TRANSACTIONS_BUCKET: !Ref TransactionsBucket
           REQUISITIONS_TABLE_NAME: !Ref RequisitionTable
       Runtime: nodejs18.x
       Architectures:
@@ -153,7 +166,9 @@ Resources:
                 - kms:GenerateDataKey
               Resource: !GetAtt KmsKey.Arn
         - S3WritePolicy:
-            BucketName: !Ref TransactionsListBucket
+            BucketName: !Ref TransactionsBucket
+        - S3ReadPolicy:
+            BucketName: !Ref TransactionsBucket
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
@@ -185,6 +200,11 @@ Resources:
           - "https://${ApiId}.execute-api.${AWS::Region}.amazonaws.com/v1/requisition-complete"
           - ApiId: !Ref RequisitionApi
         GetTransactionsFunctionARN: !Ref GetTransactionsFunction
+        TransactionCurrency: !Ref TransactionCurrency
+        TransactionListSender: !Ref TransactionListSender
+        TransactionListRecipient: !Ref TransactionListRecipient
+        AccountUsersKey: !Ref AccountUsersObjectKey
+        AccountUsersBucket: !Ref TransactionsBucket
       Policies:
         - LambdaInvokePolicy:
             FunctionName: !Ref UpdateApiCredentialsFunction
@@ -248,12 +268,11 @@ Resources:
         - Endpoint: !Ref RequisitionNotificationAddress
           Protocol: email
 
-  TransactionsListBucket:
+  TransactionsBucket:
     Type: AWS::S3::Bucket
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
     Properties:
-      BucketName: gocardless-bank-account-data-transactions
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true

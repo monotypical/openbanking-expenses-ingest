@@ -134,3 +134,9 @@ functions/*/build
 
 # SAM default build folder
 .aws-sam/
+
+# SAM config
+samconfig.toml
+
+# Account users file
+account-users.json

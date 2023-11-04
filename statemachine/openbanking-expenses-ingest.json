@@ -246,7 +246,10 @@
             "Requisition.$": "$.Requisition.Reference",
             "DateFrom": "2023-10-01",
             "DateTo": "2023-11-01",
-            "Country": "${BankCountry}"
+            "Country": "${BankCountry}",
+            "Currency": "${TransactionCurrency}",
+            "AccountUsersKey": "${AccountUsersKey}",
+            "AccountUsersBucket": "${AccountUsersBucket}"
           }
         },
         "End": true

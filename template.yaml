@@ -147,6 +147,8 @@ Resources:
         Variables:
           TRANSACTIONS_BUCKET: !Ref TransactionsBucket
           REQUISITIONS_TABLE_NAME: !Ref RequisitionTable
+          TRANSACTION_COUNTRY: !Ref BankCountry
+          TRANSACTION_CURRENCY: !Ref TransactionCurrency
       Runtime: nodejs18.x
       Architectures:
         - x86_64

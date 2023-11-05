@@ -3,21 +3,23 @@ import { GetObjectCommand, NoSuchKey, PutObjectCommand, S3Client } from "@aws-sd
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb"
 import { Handler } from "aws-lambda"
 import { randomUUID } from "crypto"
-import NordigenClient from "nordigen-node"
-import type { Requisition } from "../../lib/types"
-import { z } from "zod"
-import { format } from "date-fns"
 import { stringify } from "csv/sync"
+import { format } from "date-fns"
+import NordigenClient from "nordigen-node"
+import { z } from "zod"
+import type { Requisition } from "../../lib/types"
 
 type UploadTransactionsInput = {
-    Requisition: string
     AccessToken: string
-    DateFrom: string
-    DateTo: string
-    Country: string
-    Currency: string
-    AccountUsersKey: string
-    AccountUsersBucket: string
+    Requisition: string
+    TransactionDetails: {
+        DateFrom: string
+        DateTo: string
+    }
+    AccountUsers: {
+        Bucket: string
+        Key: string
+    }
 }
 
 type UploadTransactionsOutput = {
@@ -69,6 +71,8 @@ type Transaction = {
 
 const TRANSACTIONS_BUCKET = process.env.TRANSACTIONS_BUCKET
 const REQUISITIONS_TABLE_NAME = process.env.REQUISITIONS_TABLE_NAME
+const TRANSACTION_COUNTRY = process.env.TRANSACTION_COUNTRY!
+const TRANSACTION_CURRENCY = process.env.TRANSACTION_CURRENCY!
 const DATE_FORMAT = "yyyy-MM-dd"
 
 const nordigenClient = new NordigenClient({ secretId: "Not used", secretKey: "Not used" })
@@ -126,13 +130,15 @@ const getAccountUsers = async (bucketName: string, objectKey: string): Promise<A
     }
 }
 
-const uploadToS3 = (key: string, object: any, stringify: boolean) => {
+const uploadToS3 = (key: string, object: any, type: "JSON" | "CSV") => {
+    const body = type === "JSON" ? JSON.stringify(object) : object
+    const contentType = type === "JSON" ? "application/json" : "text/csv"
     return s3Client.send(
         new PutObjectCommand({
             Bucket: TRANSACTIONS_BUCKET,
             Key: key,
-            Body: stringify ? JSON.stringify(object) : object,
-            ContentType: "application/json",
+            Body: body,
+            ContentType: contentType,
         })
     )
 }
@@ -153,19 +159,18 @@ const isTransactionFromAccountUser = (
     }
 }
 
-const formatApiTransaction = (
-    apiTransaction: ApiTransaction,
-    accountUsers: AccountUser[],
-    currency: string
-): Transaction => {
+const formatApiTransaction = (apiTransaction: ApiTransaction, accountUsers: AccountUser[]): Transaction => {
     const { isFromAccountUser, person: accountUser } = isTransactionFromAccountUser(apiTransaction, accountUsers)
-    const amount = isFromAccountUser ? apiTransaction.transactionAmount.amount : -apiTransaction.transactionAmount.amount
+    const amount = isFromAccountUser
+        ? apiTransaction.transactionAmount.amount
+        : -apiTransaction.transactionAmount.amount
     const type: TransactionType = isFromAccountUser ? "Balance Top Up" : amount < 0 ? "Refund" : "Outgoing Payment"
     const date = format(apiTransaction.valueDate, DATE_FORMAT)
     const description = isFromAccountUser
         ? accountUser!
         : apiTransaction.creditorName || apiTransaction.remittanceInformationUnstructured
-    const error = apiTransaction.transactionAmount.currency === currency ? undefined : "Unrecognised currency"
+    const error =
+        apiTransaction.transactionAmount.currency === TRANSACTION_CURRENCY ? undefined : "Unrecognised currency"
     return {
         type,
         date,
@@ -176,21 +181,23 @@ const formatApiTransaction = (
 }
 
 const formatTransactionsAsCSVColumns = (transactions: Transaction[]) => {
-    return transactions.map((t) => {
-        const date = new Date(t.date)
-        return {
-            date: format(date, "dd/MM/yyyy"),
-            year: format(date, "yyyy"),
-            month: format(date, "MM"),
-            description: t.description,
-            amount: t.error ? "N/A: unrecognised currency - please confirm" : t.amount
-        }
-    })
+    return transactions
+        .sort((a, b) => (a.date > b.date ? 1 : a.date < b.date ? -1 : 0))
+        .map((t) => {
+            const date = new Date(t.date)
+            return {
+                date: format(date, "dd/MM/yyyy"),
+                year: format(date, "yyyy"),
+                month: format(date, "MM"),
+                description: t.description,
+                amount: t.error ? "N/A: unrecognised currency - please confirm" : t.amount,
+            }
+        })
 }
 
-const formatTransactionsAsCSVs = (transactions: Transaction[]): { expensesCSV: string, topUpsCSV: string } => {
+const formatTransactionsAsCSVs = (transactions: Transaction[]): { expensesCSV: string; topUpsCSV: string } => {
     const expensesTransactions = transactions.filter((t) => t.type !== "Balance Top Up")
-    const expensesCSV = stringify(formatTransactionsAsCSVColumns(expensesTransactions),{
+    const expensesCSV = stringify(formatTransactionsAsCSVColumns(expensesTransactions), {
         columns: [
             { key: "date", header: "Date" },
             { key: "year", header: "Year" },
@@ -198,11 +205,11 @@ const formatTransactionsAsCSVs = (transactions: Transaction[]): { expensesCSV: s
             { key: "description", header: "Description" },
             { key: "amount", header: "Amount" },
         ],
-        header: false
+        header: false,
     })
 
     const topUpTransactions = transactions.filter((t) => t.type === "Balance Top Up")
-    const topUpsCSV = stringify(formatTransactionsAsCSVColumns(topUpTransactions),{
+    const topUpsCSV = stringify(formatTransactionsAsCSVColumns(topUpTransactions), {
         columns: [
             { key: "date", header: "Date" },
             { key: "year", header: "Year" },
@@ -210,22 +217,18 @@ const formatTransactionsAsCSVs = (transactions: Transaction[]): { expensesCSV: s
             { key: "description", header: "Person" },
             { key: "amount", header: "Amount" },
         ],
-        header: false
+        header: false,
     })
 
     return { expensesCSV, topUpsCSV }
 }
 
-const formatTransactions = (
-    apiTransactions: ApiTransactionResponse,
-    accountUsers: AccountUser[],
-    currency: string
-): Transaction[] => {
+const formatTransactions = (apiTransactions: ApiTransactionResponse, accountUsers: AccountUser[]): Transaction[] => {
     const bookedTransactions: Transaction[] = apiTransactions.transactions.booked.map((apiTransaction) =>
-        formatApiTransaction(apiTransaction, accountUsers, currency)
+        formatApiTransaction(apiTransaction, accountUsers)
     )
     const pendingTransactions: Transaction[] = apiTransactions.transactions.pending.map((apiTransaction) =>
-        formatApiTransaction(apiTransaction, accountUsers, currency)
+        formatApiTransaction(apiTransaction, accountUsers)
     )
     return [...bookedTransactions, ...pendingTransactions]
 }
@@ -235,40 +238,40 @@ export const handler: Handler = async (input: UploadTransactionsInput): Promise<
     const accountId = await getAccountId(nordigenClient, input.Requisition)
     console.log(`Using account ID ${accountId}`)
 
-    const accountUsers = await getAccountUsers(input.AccountUsersBucket, input.AccountUsersKey)
+    const accountUsers = await getAccountUsers(input.AccountUsers.Bucket, input.AccountUsers.Key)
     console.log("Got account users")
 
     const account = nordigenClient.account(accountId)
     const transactionResponse = await account.getTransactions({
-        dateFrom: input.DateFrom,
-        dateTo: input.DateTo,
-        country: input.Country,
+        dateFrom: input.TransactionDetails.DateFrom,
+        dateTo: input.TransactionDetails.DateTo,
+        country: TRANSACTION_COUNTRY,
     })
     console.log("Got transactions from API")
 
     const uuid = randomUUID()
     const rawTransactionsObjectKey = `accounts/${accountId}/transactions/raw/${uuid}`
-    await uploadToS3(rawTransactionsObjectKey, transactionResponse, true)
+    await uploadToS3(rawTransactionsObjectKey, transactionResponse, "JSON")
     console.log("Uploaded raw transactions to S3")
 
     const apiTransactions = ApiTransactionResponse.parse(transactionResponse)
-    const transactions = formatTransactions(apiTransactions, accountUsers, input.Currency)
+    const transactions = formatTransactions(apiTransactions, accountUsers)
 
     const formattedTransactionsKey = `accounts/${accountId}/transactions/formatted/${uuid}`
-    await uploadToS3(formattedTransactionsKey, transactions, true)
+    await uploadToS3(formattedTransactionsKey, transactions, "JSON")
     console.log("Uploaded formatted transactions to S3")
 
     const { expensesCSV, topUpsCSV } = formatTransactionsAsCSVs(transactions)
     const expensesCsvKey = `accounts/${accountId}/transactions/csv/expenses/${uuid}`
-    await uploadToS3(expensesCsvKey, expensesCSV, false)
+    await uploadToS3(expensesCsvKey, expensesCSV, "CSV")
     const topUpsCsvKey = `accounts/${accountId}/transactions/csv/top-ups/${uuid}`
-    await uploadToS3(topUpsCsvKey, topUpsCSV, false)
+    await uploadToS3(topUpsCsvKey, topUpsCSV, "CSV")
     console.log("Uploaded CSVs to S3")
 
     return {
         RawTransactionsObjectKey: rawTransactionsObjectKey,
         FormattedTransactionsObjectKey: formattedTransactionsKey,
         ExpensesCsvObjectKey: expensesCsvKey,
-        TopUpsCsvObjectKey: topUpsCsvKey
+        TopUpsCsvObjectKey: topUpsCsvKey,
     }
 }

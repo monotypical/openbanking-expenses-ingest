@@ -23,4 +23,9 @@ type Updateable = {
 
 type ApiCredential = ExpiringValue<string> & Updateable
 
-export type { Requisition, ConfirmationStatus, ExpiringValue, Updateable, ApiCredential }
+type TransactionDetails = {
+  DateFrom: string
+  DateTo: string
+}
+
+export type { Requisition, ConfirmationStatus, ExpiringValue, Updateable, ApiCredential, TransactionDetails }

@@ -1,8 +1,32 @@
 {
     "Comment": "Gets bank transactions from OpenBanking via GoCardless and exports them to a google sheet",
-    "StartAt": "Get API Credential SSM Parameters",
+    "StartAt": "Check input dates present",
     "States": {
-      "Get API Credential SSM Parameters": {
+      "Check input dates present": {
+        "Type": "Choice",
+        "Choices": [
+          {
+            "And": [
+              {
+                "Variable": "$.TransactionDetails.DateFrom",
+                "StringMatches": "*-*-*"
+              },
+              {
+                "Variable": "$.TransactionDetails.DateTo",
+                "StringMatches": "*-*-*"
+              }
+            ],
+            "Next": "Get API Credentials SSM Parameters"
+          }
+        ],
+        "Default": "Transaction dates invalid"
+      },
+      "Transaction dates invalid": {
+        "Type": "Fail",
+        "Error": "TransactionDatesInvalid",
+        "Comment": "Transaction dates are not of required ISO 8601 format"
+      },
+      "Get API Credentials SSM Parameters": {
         "Type": "Task",
         "Next": "Update API Credentials",
         "Parameters": {
@@ -24,23 +48,17 @@
             "Value.$": "$.Parameters[2].Value",
             "Expires.$": "$.Parameters[3].Value"
           }
-        }
+        }, 
+        "ResultPath": "$.Credentials"
       },
       "Update API Credentials": {
         "Type": "Task",
         "Resource": "arn:aws:states:::lambda:invoke",
-        "OutputPath": "$.Payload",
         "Parameters": {
           "FunctionName": "${UpdateApiCredentialsFunctionARN}:$LATEST",
           "Payload": {
-            "AccessToken": {
-              "Value.$": "$.AccessToken.Value",
-              "Expires.$": "$.AccessToken.Expires"
-            },
-            "RefreshToken": {
-                "Value.$": "$.RefreshToken.Value",
-                "Expires.$": "$.RefreshToken.Expires"
-            },
+            "AccessToken.$": "$.Credentials.AccessToken",
+            "RefreshToken.$": "$.Credentials.RefreshToken",
             "SecretIdParam": "${SecretIdParamName}",
             "SecretKeyParam": "${SecretKeyParamName}"
           }
@@ -58,10 +76,16 @@
             "BackoffRate": 2
           }
         ],
+        "ResultSelector": {
+          "AccessToken.$": "$.Payload.AccessToken",
+          "RefreshToken.$": "$.Payload.RefreshToken"
+        },
+        "ResultPath": "$.Credentials",
         "Next": "Update API Credentials SSM Params"
       },
       "Update API Credentials SSM Params": {
         "Type": "Parallel",
+        "InputPath": "$.Credentials",
         "Branches": [
           {
             "StartAt": "Update Access Token If Updated",
@@ -186,7 +210,7 @@
         "Parameters": {
           "FunctionName": "${UpdateRequisitionFunctionARN}:$LATEST",
           "Payload": {
-            "AccessToken.$": "$.AccessToken",
+            "AccessToken.$": "$.Credentials.AccessToken",
             "Requisition": {
               "Reference.$": "$.Requisition.Reference",
               "TableName": "${RequisitionTableName}"
@@ -229,7 +253,8 @@
           "KeyId": "${SsmKeyId}",
           "Overwrite": true
         },
-        "Next": "Get API Credential SSM Parameters"
+        "ResultPath": null,
+        "Next": "Get API Credentials SSM Parameters"
       },
       "Don't Update Requisition SSM Param": {
         "Type": "Pass",
@@ -242,14 +267,13 @@
         "Parameters": {
           "FunctionName": "${GetTransactionsFunctionARN}:$LATEST",
           "Payload": {
-            "AccessToken.$": "$.AccessToken.Value",
+            "AccessToken.$": "$.Credentials.AccessToken.Value",
             "Requisition.$": "$.Requisition.Reference",
-            "DateFrom": "2023-10-01",
-            "DateTo": "2023-11-01",
-            "Country": "${BankCountry}",
-            "Currency": "${TransactionCurrency}",
-            "AccountUsersKey": "${AccountUsersKey}",
-            "AccountUsersBucket": "${AccountUsersBucket}"
+            "TransactionDetails.$": "$.TransactionDetails",
+            "AccountUsers": {
+              "Bucket": "${AccountUsersBucket}",
+              "Key": "${AccountUsersKey}"
+            }
           }
         },
         "End": true

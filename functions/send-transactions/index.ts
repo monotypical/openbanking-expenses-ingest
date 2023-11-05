@@ -17,7 +17,7 @@ type SendTransactionsOutput = {
 }
 
 const TRANSACTIONS_BUCKET = process.env.TRANSACTIONS_BUCKET!
-const AWS_REGION = process.env.AWS_REGION!
+const TRANSACTIONS_CONFIG_SET = process.env.TRANSACTIONS_CONFIG_SET!
 
 const s3Client = new S3Client()
 const sesClient = new SESClient()
@@ -49,7 +49,10 @@ export const handler: Handler = async (input: SendTransactionsInput): Promise<Se
         attachments: [
             { filename: `${input.Month}-expenses.csv`, content: expensesCsv, contentType: expensesCsvResponse.ContentType! },
             { filename: `${input.Month}-top-ups.csv`, content: topUpsCsv, contentType: topUpsCsvResponse.ContentType! }
-        ]
+        ],
+        headers: {
+            "X-SES-CONFIGURATION-SET": TRANSACTIONS_CONFIG_SET
+        }
     })
     return {
         MessageID: result.messageId

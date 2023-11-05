@@ -186,6 +186,7 @@ Resources:
       Environment:
         Variables:
           TRANSACTIONS_BUCKET: !Ref TransactionsBucket
+          TRANSACTIONS_CONFIG_SET: !Ref SenderConfigSet
       Runtime: nodejs18.x
       Architectures:
         - x86_64
@@ -352,3 +353,13 @@ Resources:
     Properties:
       AliasName: alias/Openbanking-Expenses-Ingest
       TargetKeyId: !Ref KmsKey
+
+  SenderIdentity:
+    Type: AWS::SES::EmailIdentity
+    Properties:
+      EmailIdentity: !Ref TransactionListSender
+      DkimAttributes:
+        SigningEnabled: true
+
+  SenderConfigSet:
+    Type: AWS::SES::ConfigurationSet

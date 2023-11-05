@@ -23,10 +23,10 @@ type UploadTransactionsInput = {
 }
 
 type UploadTransactionsOutput = {
-    RawTransactionsObjectKey: string
-    FormattedTransactionsObjectKey: string
-    ExpensesCsvObjectKey: string
-    TopUpsCsvObjectKey: string
+    RawTransactionsKey: string
+    FormattedTransactionsKey: string
+    ExpensesCsvKey: string
+    TopUpsCsvKey: string
 }
 
 const AccountUser = z.object({
@@ -249,29 +249,30 @@ export const handler: Handler = async (input: UploadTransactionsInput): Promise<
     })
     console.log("Got transactions from API")
 
+    const month = input.TransactionDetails.DateFrom.split("-").slice(0,2).join("-")
     const uuid = randomUUID()
-    const rawTransactionsObjectKey = `accounts/${accountId}/transactions/raw/${uuid}`
-    await uploadToS3(rawTransactionsObjectKey, transactionResponse, "JSON")
+    const rawTransactionsKey = `accounts/${accountId}/transactions/raw/${month}-${uuid}`
+    await uploadToS3(rawTransactionsKey, transactionResponse, "JSON")
     console.log("Uploaded raw transactions to S3")
 
     const apiTransactions = ApiTransactionResponse.parse(transactionResponse)
     const transactions = formatTransactions(apiTransactions, accountUsers)
 
-    const formattedTransactionsKey = `accounts/${accountId}/transactions/formatted/${uuid}`
+    const formattedTransactionsKey = `accounts/${accountId}/transactions/formatted/${month}-${uuid}`
     await uploadToS3(formattedTransactionsKey, transactions, "JSON")
     console.log("Uploaded formatted transactions to S3")
 
     const { expensesCSV, topUpsCSV } = formatTransactionsAsCSVs(transactions)
-    const expensesCsvKey = `accounts/${accountId}/transactions/csv/expenses/${uuid}`
+    const expensesCsvKey = `accounts/${accountId}/transactions/csv/expenses/${month}-${uuid}`
     await uploadToS3(expensesCsvKey, expensesCSV, "CSV")
-    const topUpsCsvKey = `accounts/${accountId}/transactions/csv/top-ups/${uuid}`
+    const topUpsCsvKey = `accounts/${accountId}/transactions/csv/top-ups/${month}-${uuid}`
     await uploadToS3(topUpsCsvKey, topUpsCSV, "CSV")
     console.log("Uploaded CSVs to S3")
 
     return {
-        RawTransactionsObjectKey: rawTransactionsObjectKey,
-        FormattedTransactionsObjectKey: formattedTransactionsKey,
-        ExpensesCsvObjectKey: expensesCsvKey,
-        TopUpsCsvObjectKey: topUpsCsvKey,
+        RawTransactionsKey: rawTransactionsKey,
+        FormattedTransactionsKey: formattedTransactionsKey,
+        ExpensesCsvKey: expensesCsvKey,
+        TopUpsCsvKey: topUpsCsvKey,
     }
 }

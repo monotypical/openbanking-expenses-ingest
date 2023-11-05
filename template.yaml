@@ -330,6 +330,7 @@ Resources:
           - ServerSideEncryptionByDefault:
               SSEAlgorithm: aws:kms
               KMSMasterKeyID: !Ref KmsKey
+            BucketKeyEnabled: true
       VersioningConfiguration:
         Status: Enabled
 

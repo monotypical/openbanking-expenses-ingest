@@ -276,6 +276,22 @@
             }
           }
         },
+        "Next": "Send Transactions"
+      },
+      "Send Transactions": {
+        "Type": "Task",
+        "Resource": "arn:aws:states:::lambda:invoke",
+        "OutputPath": "$.Payload",
+        "Parameters": {
+          "FunctionName": "${SendTransactionsFunctionARN}:$LATEST",
+          "Payload": {
+            "Month.$": "$.Month",
+            "ExpensesCsvKey.$": "$.ExpensesCsvKey",
+            "TopUpsCsvKey.$": "$.TopUpsCsvKey",
+            "EmailTo": "${TransactionListRecipient}",
+            "EmailFrom": "${TransactionListSender}"
+          }
+        },
         "End": true
       }
     }

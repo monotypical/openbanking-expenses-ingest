@@ -23,6 +23,7 @@ type UploadTransactionsInput = {
 }
 
 type UploadTransactionsOutput = {
+    Month: string
     RawTransactionsKey: string
     FormattedTransactionsKey: string
     ExpensesCsvKey: string
@@ -270,6 +271,7 @@ export const handler: Handler = async (input: UploadTransactionsInput): Promise<
     console.log("Uploaded CSVs to S3")
 
     return {
+        Month: month,
         RawTransactionsKey: rawTransactionsKey,
         FormattedTransactionsKey: formattedTransactionsKey,
         ExpensesCsvKey: expensesCsvKey,

@@ -179,6 +179,47 @@ Resources:
         EntryPoints:
           - index.ts
   
+  SendTransactionsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/send-transactions/
+      Environment:
+        Variables:
+          TRANSACTIONS_BUCKET: !Ref TransactionsBucket
+      Runtime: nodejs18.x
+      Architectures:
+        - x86_64
+      Handler: index.handler
+      Timeout: 30
+      Policies:
+        - KMSDecryptPolicy:
+            KeyId: !Ref KmsKey
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - kms:GenerateDataKey
+              Resource: !GetAtt KmsKey.Arn
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - ses:SendRawEmail
+              Resource:
+                - !Sub arn:aws:ses:${AWS::Region}:${AWS::AccountId}:configuration-set/*
+                - !Sub
+                  - arn:aws:ses:${AWS::Region}:${AWS::AccountId}:identity/${Identity}
+                  - Identity: !Ref TransactionListSender
+        - S3ReadPolicy:
+            BucketName: !Ref TransactionsBucket
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: 'es2020'
+        EntryPoints:
+          - index.ts
+  
   IngestSharedExpensesStateMachine:
     Type: AWS::Serverless::StateMachine
     Properties:
@@ -203,10 +244,11 @@ Resources:
           - ApiId: !Ref RequisitionApi
         GetTransactionsFunctionARN: !Ref GetTransactionsFunction
         TransactionCurrency: !Ref TransactionCurrency
-        TransactionListSender: !Ref TransactionListSender
-        TransactionListRecipient: !Ref TransactionListRecipient
         AccountUsersKey: !Ref AccountUsersObjectKey
         AccountUsersBucket: !Ref TransactionsBucket
+        SendTransactionsFunctionARN: !Ref SendTransactionsFunction
+        TransactionListSender: !Ref TransactionListSender
+        TransactionListRecipient: !Ref TransactionListRecipient
       Policies:
         - LambdaInvokePolicy:
             FunctionName: !Ref UpdateApiCredentialsFunction
@@ -214,6 +256,8 @@ Resources:
             FunctionName: !Ref UpdateRequisitionFunction
         - LambdaInvokePolicy:
             FunctionName: !Ref GetTransactionsFunction
+        - LambdaInvokePolicy:
+            FunctionName: !Ref SendTransactionsFunction
         - SSMParameterReadPolicy:
             ParameterName: 'GoCardless/*'
         - KMSDecryptPolicy:

@@ -1,0 +1,34 @@
+{
+  "name": "send-transactions",
+  "version": "1.0.0",
+  "description": "Retreives the list of transactions S3 and sends them via email",
+  "main": "index.ts",
+  "scripts": {
+    "prebuild": "rm -rf build",
+    "build": "esbuild index.ts --bundle --minify --sourcemap --platform=node --target=es2020 --outfile=build/index.js",
+    "postbuild": "cd build && zip -r index.zip index.js*"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/monotypical/openbanking-expenses-ingest.git"
+  },
+  "author": "Alice Lee",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/monotypical/openbanking-expenses-ingest/issues"
+  },
+  "homepage": "https://github.com/monotypical/openbanking-expenses-ingest#readme",
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.125",
+    "@types/node": "^20.8.10",
+    "@types/nodemailer": "^6.4.13",
+    "esbuild": "^0.19.5",
+    "typescript": "^5.2.2"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.441.0",
+    "@aws-sdk/client-ses": "^3.441.0",
+    "aws-lambda": "^1.0.7",
+    "nodemailer": "^6.9.7"
+  }
+}

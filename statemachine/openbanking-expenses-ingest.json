@@ -35,8 +35,7 @@
             "${AccessTokenExpiresParamName}",
             "${RefreshTokenParamName}",
             "${RefreshTokenExpiresParamName}"
-          ],
-          "WithDecryption": true
+          ]
         },
         "Resource": "arn:aws:states:::aws-sdk:ssm:getParameters",
         "ResultSelector": {
@@ -112,8 +111,7 @@
                 "Parameters": {
                   "Name": "${AccessTokenParamName}",
                   "Value.$": "$.AccessToken.Value",
-                  "Type": "SecureString",
-                  "KeyId": "${SsmKeyId}",
+                  "Type": "String",
                   "Overwrite": true
                 },
                 "ResultPath": null,
@@ -162,8 +160,7 @@
                 "Parameters": {
                   "Name": "${RefreshTokenParamName}",
                   "Value.$": "$.RefreshToken.Value",
-                  "Type": "SecureString",
-                  "KeyId": "${SsmKeyId}",
+                  "Type": "String",
                   "Overwrite": true
                 },
                 "ResultPath": null,
@@ -194,8 +191,7 @@
       "Get Requisition Reference From SSM": {
         "Type": "Task",
         "Parameters": {
-          "Name": "/GoCardless/Requisition-Reference",
-          "WithDecryption": true
+          "Name": "/GoCardless/Requisition-Reference"
         },
         "Resource": "arn:aws:states:::aws-sdk:ssm:getParameter",
         "ResultPath": "$.Requisition",
@@ -249,8 +245,7 @@
         "Parameters": {
           "Name": "${RequisitionReferenceParamName}",
           "Value.$": "$.Requisition.Reference",
-          "Type": "SecureString",
-          "KeyId": "${SsmKeyId}",
+          "Type": "String",
           "Overwrite": true
         },
         "ResultPath": null,

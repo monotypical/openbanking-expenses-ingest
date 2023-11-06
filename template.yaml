@@ -45,8 +45,6 @@ Resources:
       Policies:
         - SSMParameterReadPolicy:
             ParameterName: 'GoCardless/*'
-        - KMSDecryptPolicy:
-            KeyId: !Ref KmsKey
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
@@ -70,18 +68,8 @@ Resources:
             TableName: !Ref RequisitionTable
         - DynamoDBWritePolicy:
             TableName: !Ref RequisitionTable
-        - KMSDecryptPolicy:
-            KeyId: !Ref KmsKey
-        - KMSEncryptPolicy:
-            KeyId: !Ref KmsKey
         - SNSPublishMessagePolicy:
             TopicName: !GetAtt RequisitionSnsTopic.TopicName
-        - Version: '2012-10-17'
-          Statement:
-            - Effect: Allow
-              Action:
-                - kms:GenerateDataKey
-              Resource: !GetAtt KmsKey.Arn
         - Version: '2012-10-17'
           Statement:
             - Effect: Allow
@@ -121,10 +109,6 @@ Resources:
             TableName: !Ref RequisitionTable
         - DynamoDBWritePolicy:
             TableName: !Ref RequisitionTable
-        - KMSEncryptPolicy:
-            KeyId: !Ref KmsKey
-        - KMSDecryptPolicy:
-            KeyId: !Ref KmsKey
         - Version: '2012-10-17'
           Statement:
             - Effect: Allow
@@ -142,6 +126,7 @@ Resources:
   GetTransactionsFunction:
     Type: AWS::Serverless::Function
     Properties:
+      Description: Retreives transactions from the GoCardless Bank Account Data API, formats them, and saves to S3
       CodeUri: functions/get-transactions/
       Environment:
         Variables:
@@ -157,16 +142,6 @@ Resources:
       Policies:
         - DynamoDBReadPolicy:
             TableName: !Ref RequisitionTable
-        - KMSDecryptPolicy:
-            KeyId: !Ref KmsKey
-        - KMSEncryptPolicy:
-            KeyId: !Ref KmsKey
-        - Version: '2012-10-17'
-          Statement:
-            - Effect: Allow
-              Action:
-                - kms:GenerateDataKey
-              Resource: !GetAtt KmsKey.Arn
         - S3WritePolicy:
             BucketName: !Ref TransactionsBucket
         - S3ReadPolicy:
@@ -182,6 +157,7 @@ Resources:
   SendTransactionsFunction:
     Type: AWS::Serverless::Function
     Properties:
+      Description: Sends the transactions formatted as CSVs to the recipient
       CodeUri: functions/send-transactions/
       Environment:
         Variables:
@@ -193,14 +169,6 @@ Resources:
       Handler: index.handler
       Timeout: 30
       Policies:
-        - KMSDecryptPolicy:
-            KeyId: !Ref KmsKey
-        - Version: '2012-10-17'
-          Statement:
-            - Effect: Allow
-              Action:
-                - kms:GenerateDataKey
-              Resource: !GetAtt KmsKey.Arn
         - Version: '2012-10-17'
           Statement:
             - Effect: Allow
@@ -220,6 +188,39 @@ Resources:
         Target: 'es2020'
         EntryPoints:
           - index.ts
+
+  CalculateDateRangeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: Calculates the full date range for the previous month and invokes the state machine with appropriate input
+      CodeUri: functions/calculate-date-range/
+      Environment:
+        Variables:
+          STATE_MACHINE_ARN: !Ref IngestSharedExpensesStateMachine
+      Policies:
+        - StepFunctionsExecutionPolicy:
+            StateMachineName: !GetAtt IngestSharedExpensesStateMachine.Name
+      Events:
+        StartOfMonth:
+          Type: ScheduleV2
+          Properties:
+            Description: Invokes the OpenBanking Expenses Ingest state machine at the start of the month
+            ScheduleExpression: cron(0 3 1 * ? *)
+            FlexibleTimeWindow:
+              MaximumWindowInMinutes: 180
+              Mode: FLEXIBLE
+      Runtime: nodejs18.x
+      Architectures:
+        - x86_64
+      Handler: index.handler
+      Timeout: 30
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: 'es2020'
+        EntryPoints:
+          - index.ts
   
   IngestSharedExpensesStateMachine:
     Type: AWS::Serverless::StateMachine
@@ -228,7 +229,6 @@ Resources:
       DefinitionSubstitutions:
         UpdateApiCredentialsFunctionARN: !Ref UpdateApiCredentialsFunction
         UpdateRequisitionFunctionARN: !Ref UpdateRequisitionFunction
-        SsmKeyId: !Ref KmsKey
         SecretIdParamName: /GoCardless/Secret-Id
         SecretKeyParamName: /GoCardless/Secret-Key
         AccessTokenParamName: /GoCardless/Access-Token
@@ -261,10 +261,6 @@ Resources:
             FunctionName: !Ref SendTransactionsFunction
         - SSMParameterReadPolicy:
             ParameterName: 'GoCardless/*'
-        - KMSDecryptPolicy:
-            KeyId: !Ref KmsKey
-        - KMSEncryptPolicy:
-            KeyId: !Ref KmsKey
         - Version: '2012-10-17'
           Statement:
             - Effect: Allow
@@ -287,10 +283,6 @@ Resources:
         - AttributeName: reference
           KeyType: HASH
       BillingMode: PAY_PER_REQUEST
-      SSESpecification:
-        KMSMasterKeyId: !Ref KmsKey
-        SSEEnabled: true
-        SSEType: KMS
       TimeToLiveSpecification:
         AttributeName: expires
         Enabled: true
@@ -310,7 +302,6 @@ Resources:
     Properties:
       TopicName: GoCardless-Bank-Account-Data-Agreement
       DisplayName: GoCardless Bank Account API agreement notification
-      KmsMasterKeyId: !Ref KmsKey
       Subscription:
         - Endpoint: !Ref RequisitionNotificationAddress
           Protocol: email
@@ -328,33 +319,10 @@ Resources:
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
-              SSEAlgorithm: aws:kms
-              KMSMasterKeyID: !Ref KmsKey
-            BucketKeyEnabled: true
+              SSEAlgorithm: AES256
       VersioningConfiguration:
         Status: Enabled
-
-  KmsKey:
-    Type: AWS::KMS::Key
-    Properties:
-      Description: The key used to encrypt sensitive information related to the openbanking-expenses-ingest service
-      KeyPolicy:
-        Version: '2012-10-17'
-        Id: openbanking-expenses-ingest-key-policy
-        Statement:
-          - Sid: Enable Root User Permissions
-            Effect: Allow
-            Principal:
-              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
-            Action: 'kms:*'
-            Resource: '*'
   
-  KmsKeyAlias:
-    Type: AWS::KMS::Alias
-    Properties:
-      AliasName: alias/Openbanking-Expenses-Ingest
-      TargetKeyId: !Ref KmsKey
-
   SenderIdentity:
     Type: AWS::SES::EmailIdentity
     Properties:

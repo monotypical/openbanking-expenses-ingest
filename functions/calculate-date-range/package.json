@@ -1,0 +1,30 @@
+{
+  "name": "calculate-date-range",
+  "version": "1.0.0",
+  "description": "Calculates last month's date range and invokes the state machine to ingest expenses",
+  "main": "index.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/monotypical/openbanking-expenses-ingest.git"
+  },
+  "author": "Alice Lee",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/monotypical/openbanking-expenses-ingest/issues"
+  },
+  "homepage": "https://github.com/monotypical/openbanking-expenses-ingest#readme",
+  "dependencies": {
+    "@aws-sdk/client-sfn": "^3.441.0",
+    "@types/aws-lambda": "^8.10.125",
+    "aws-lambda": "^1.0.7",
+    "date-fns": "^2.30.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.8.10",
+    "esbuild": "^0.19.5",
+    "typescript": "^5.2.2"
+  }
+}

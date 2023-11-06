@@ -65,11 +65,10 @@ const getNewTokens = async (nordigenClient: NordigenClient): Promise<UpdateApiCr
     }
 }
 
-async function getSsmParam<V>(client: SSMClient, paramName: string): Promise<V> {
+async function getSsmParam<V>(paramName: string): Promise<V> {
     const response = await ssmClient.send(
         new GetParameterCommand({
-            Name: paramName,
-            WithDecryption: true,
+            Name: paramName
         })
     )
 
@@ -94,8 +93,8 @@ export const handler: Handler = async (input: UpdateApiCredentialsInput): Promis
         }
     }
 
-    const secretId = await getSsmParam<string>(ssmClient, input.SecretIdParam)
-    const secretKey = await getSsmParam<string>(ssmClient, input.SecretKeyParam)
+    const secretId = await getSsmParam<string>(input.SecretIdParam)
+    const secretKey = await getSsmParam<string>(input.SecretKeyParam)
     const nordigenClient = new NordigenClient({
         secretId,
         secretKey,

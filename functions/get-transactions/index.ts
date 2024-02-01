@@ -150,8 +150,8 @@ const isTransactionFromAccountUser = (
 ): { isFromAccountUser: boolean; person?: string } => {
     const accountUser = accountUsers.find((accountUser) => {
         return (
-            transaction.debtorName === accountUser.DebtorName &&
-            transaction.remittanceInformationUnstructured === accountUser.Reference
+            transaction.debtorName?.toLowerCase() === accountUser.DebtorName.toLowerCase() &&
+            transaction.remittanceInformationUnstructured.toLowerCase() === accountUser.Reference.toLowerCase()
         )
     })
     return {

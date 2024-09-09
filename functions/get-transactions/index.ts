@@ -75,8 +75,9 @@ const REQUISITIONS_TABLE_NAME = process.env.REQUISITIONS_TABLE_NAME
 const TRANSACTION_COUNTRY = process.env.TRANSACTION_COUNTRY!
 const TRANSACTION_CURRENCY = process.env.TRANSACTION_CURRENCY!
 const DATE_FORMAT = "yyyy-MM-dd"
+const GOCARDLESS_API_URL = "https://bankaccountdata.gocardless.com/api/v2"
 
-const nordigenClient = new NordigenClient({ secretId: "Not used", secretKey: "Not used" })
+const nordigenClient = new NordigenClient({ secretId: "Not used", secretKey: "Not used", baseUrl: GOCARDLESS_API_URL })
 const s3Client = new S3Client()
 const dynamoDbClient = new DynamoDBClient()
 

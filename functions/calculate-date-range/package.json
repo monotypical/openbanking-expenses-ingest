@@ -17,14 +17,14 @@
   },
   "homepage": "https://github.com/monotypical/openbanking-expenses-ingest#readme",
   "dependencies": {
-    "@aws-sdk/client-sfn": "^3.441.0",
-    "@types/aws-lambda": "^8.10.125",
+    "@aws-sdk/client-sfn": "^3.645.0",
+    "@types/aws-lambda": "^8.10.145",
     "aws-lambda": "^1.0.7",
     "date-fns": "^2.30.0"
   },
   "devDependencies": {
-    "@types/node": "^20.8.10",
-    "esbuild": "^0.19.5",
-    "typescript": "^5.2.2"
+    "@types/node": "^20.16.5",
+    "esbuild": "^0.19.12",
+    "typescript": "^5.5.4"
   }
 }

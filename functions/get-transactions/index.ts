@@ -171,7 +171,7 @@ const formatApiTransaction = (apiTransaction: ApiTransaction, accountUsers: Acco
     const date = format(apiTransaction.valueDate, DATE_FORMAT)
     const description = isFromAccountUser
         ? accountUser!
-        : apiTransaction.creditorName || apiTransaction.remittanceInformationUnstructured || DEFAULT_CREDITOR_REFERENCE
+        : apiTransaction.creditorName || apiTransaction.debtorName || apiTransaction.remittanceInformationUnstructured || DEFAULT_CREDITOR_REFERENCE
     const error =
         apiTransaction.transactionAmount.currency === TRANSACTION_CURRENCY ? undefined : "Unrecognised currency"
     return {

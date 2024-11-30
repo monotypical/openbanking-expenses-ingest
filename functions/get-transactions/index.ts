@@ -9,7 +9,7 @@ import NordigenClient from "nordigen-node"
 import { z } from "zod"
 import type { Requisition } from "../../lib/types"
 
-type UploadTransactionsInput = {
+type GetTransactionsInput = {
     AccessToken: string
     Requisition: string
     TransactionDetails: {
@@ -22,7 +22,7 @@ type UploadTransactionsInput = {
     }
 }
 
-type UploadTransactionsOutput = {
+type GetTransactionsOutput = {
     Month: string
     RawTransactionsKey: string
     FormattedTransactionsKey: string
@@ -235,7 +235,7 @@ const formatTransactions = (apiTransactions: ApiTransactionResponse, accountUser
     return [...bookedTransactions, ...pendingTransactions]
 }
 
-export const handler: Handler = async (input: UploadTransactionsInput): Promise<UploadTransactionsOutput> => {
+export const handler: Handler = async (input: GetTransactionsInput): Promise<GetTransactionsOutput> => {
     nordigenClient.token = input.AccessToken
     const accountId = await getAccountId(nordigenClient, input.Requisition)
     console.log(`Using account ID ${accountId}`)

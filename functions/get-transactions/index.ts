@@ -50,7 +50,7 @@ const ApiTransaction = z.object({
     valueDate: z.coerce.date(),
     debtorName: z.string().optional(),
     creditorName: z.string().optional(),
-    remittanceInformationUnstructured: z.string(),
+    remittanceInformationUnstructured: z.string().optional(),
 })
 type ApiTransaction = z.infer<typeof ApiTransaction>
 const ApiTransactionResponse = z.object({
@@ -76,6 +76,7 @@ const TRANSACTION_COUNTRY = process.env.TRANSACTION_COUNTRY!
 const TRANSACTION_CURRENCY = process.env.TRANSACTION_CURRENCY!
 const DATE_FORMAT = "yyyy-MM-dd"
 const GOCARDLESS_API_URL = "https://bankaccountdata.gocardless.com/api/v2"
+const DEFAULT_CREDITOR_REFERENCE = "Unknown"
 
 const nordigenClient = new NordigenClient({ secretId: "Not used", secretKey: "Not used", baseUrl: GOCARDLESS_API_URL })
 const s3Client = new S3Client()
@@ -152,7 +153,7 @@ const isTransactionFromAccountUser = (
     const accountUser = accountUsers.find((accountUser) => {
         return (
             transaction.debtorName?.toLowerCase() === accountUser.DebtorName.toLowerCase() &&
-            transaction.remittanceInformationUnstructured.toLowerCase() === accountUser.Reference.toLowerCase()
+            transaction.remittanceInformationUnstructured?.toLowerCase() === accountUser.Reference.toLowerCase()
         )
     })
     return {
@@ -170,7 +171,7 @@ const formatApiTransaction = (apiTransaction: ApiTransaction, accountUsers: Acco
     const date = format(apiTransaction.valueDate, DATE_FORMAT)
     const description = isFromAccountUser
         ? accountUser!
-        : apiTransaction.creditorName || apiTransaction.remittanceInformationUnstructured
+        : apiTransaction.creditorName || apiTransaction.remittanceInformationUnstructured || DEFAULT_CREDITOR_REFERENCE
     const error =
         apiTransaction.transactionAmount.currency === TRANSACTION_CURRENCY ? undefined : "Unrecognised currency"
     return {

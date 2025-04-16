@@ -37,7 +37,7 @@ Resources:
     Properties:
       Description: Renews or refreshes the access token for the GoCardless Bank Account Data API where necessary
       CodeUri: functions/update-api-credentials/
-      Runtime: nodejs18.x
+      Runtime: nodejs22.x
       Architectures:
         - x86_64
       Handler: index.handler
@@ -58,7 +58,7 @@ Resources:
     Properties:
       Description: Renews or refreshes the requisition for the GoCardless Bank Account Data API where necessary
       CodeUri: functions/update-requisition/
-      Runtime: nodejs18.x
+      Runtime: nodejs22.x
       Architectures:
         - x86_64
       Handler: index.handler
@@ -92,7 +92,7 @@ Resources:
       Environment:
         Variables:
           REQUISITIONS_TABLE_NAME: !Ref RequisitionTable
-      Runtime: nodejs18.x
+      Runtime: nodejs22.x
       Architectures:
         - x86_64
       Handler: index.handler
@@ -134,7 +134,7 @@ Resources:
           REQUISITIONS_TABLE_NAME: !Ref RequisitionTable
           TRANSACTION_COUNTRY: !Ref BankCountry
           TRANSACTION_CURRENCY: !Ref TransactionCurrency
-      Runtime: nodejs18.x
+      Runtime: nodejs22.x
       Architectures:
         - x86_64
       Handler: index.handler
@@ -163,7 +163,7 @@ Resources:
         Variables:
           TRANSACTIONS_BUCKET: !Ref TransactionsBucket
           TRANSACTIONS_CONFIG_SET: !Ref SenderConfigSet
-      Runtime: nodejs18.x
+      Runtime: nodejs22.x
       Architectures:
         - x86_64
       Handler: index.handler
@@ -209,7 +209,7 @@ Resources:
             FlexibleTimeWindow:
               MaximumWindowInMinutes: 180
               Mode: FLEXIBLE
-      Runtime: nodejs18.x
+      Runtime: nodejs22.x
       Architectures:
         - x86_64
       Handler: index.handler
